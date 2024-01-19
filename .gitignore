@@ -1,8 +1,14 @@
 # POREMAPS
 *.raw
-!simulations/99_benchmarks/*/*.raw
+!simulations/99_benchmarks/01_poiseuille/ptube_54_54_50_vs_2e-05.raw
+!simulations/99_benchmarks/02_channel_flow/rect_channel_24_14_50_vs_5e-05.raw
+!simulations/99_benchmarks/03_spherepackings/SPHERE3D_bcc_NX100_NY100_NZ100_PHI0.3_DIAMETER0.0008745237084764591_VSIZE1e-05.raw
+!simulations/99_benchmarks/03_spherepackings/SPHERE3D_fcc_NX100_NY100_NZ100_PHI0.3_DIAMETER0.000693979234383925_VSIZE1e-05.raw
 *.inp
-!simulations/99_benchmarks/*/*.inp
+!simulations/99_benchmarks/01_poiseuille/input_ptube_54_54_50_vs_2e-05.inp
+!simulations/99_benchmarks/02_channel_flow/input_rect_channel_24_14_50_vs_5e-05.raw
+!simulations/99_benchmarks/03_spherepackings/input_SPHERE3D_bcc_NX100_NY100_NZ100_PHI0.3_DIAMETER0.0008745237084764591_VSIZE1e-05.inp
+!simulations/99_benchmarks/03_spherepackings/input_SPHERE3D_fcc_NX100_NY100_NZ100_PHI0.3_DIAMETER0.000693979234383925_VSIZE1e-05.inp
 !input_template.inp
 *.log
 STOKES_SOLVER*
