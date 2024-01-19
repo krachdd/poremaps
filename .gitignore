@@ -6,6 +6,7 @@
 !input_template.inp
 *.log
 STOKES_SOLVER*
+POREMAPS*
 
 
 # Prerequisites

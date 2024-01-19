@@ -11,18 +11,18 @@ The code was tested with the following versions:
 - Windows
     1. `MS-MPI v10.1.1`
 
-Open `makefile` and edit `CLINKER` path to your `mpiCC`. The build command creates an executable `STOKES_SOLVER` in the `bin` directory. 
+Open `makefile` and edit `CLINKER` path to your `mpiCC`. The build command creates an executable `POREMAPS` in the `bin` directory. 
 ```shell
-linux@fastmachine:~$ cd PATH/TO/STOKES-SOLVER/src/
+linux@fastmachine:~$ cd PATH/TO/POREMAPS/src/
 linux@fastmachine:~$ vim makefile # edit CLINKER
 linux@fastmachine:~$ make
 ```
 To build it on MS Windows (MS Windows 10), we recommend to create a Visual Studio (v16.8.3) project from the existing code and link to the corresponding MS-MPI (v10.1.1) via the project properties. Tested setup in brackets.
 
 ## How to run
-Copy the executable `STOKES_SOLVER` to the folder with input file and geometry and run by 
+Copy the executable `POREMAPS` to the folder with input file and geometry and run by 
 ```shell
-linux@fastmachine:~$ mylocal_mpirun -np 8 STOKES_SOLVER my_inputfile
+linux@fastmachine:~$ mylocal_mpirun -np 8 POREMAPS my_inputfile
 ```
 
 Parameters in input file `input_template.inp`:
@@ -37,7 +37,7 @@ it_eval    100
 it_write   100
 log_file_name permeability_ptube_54_54_50_vs_2e-05.log
 solving_algorithm 2
-eps 1e-07
+eps 1e-06
 porosity 1.0
 dom_interest 0 0 0 0 0 0
 write_output 1 1 0 0
@@ -93,44 +93,6 @@ original domain: **k13** -> $k_{13}$, **k23** -> $k_{23}$, **k33** -> $k_{33}$
 `np.transpose(domain, (2, 0, 1))`: **k13** -> $k_{32}$, **k23** -> $k_{12}$, **k33** -> $k_{22}$
 
 `np.transpose(domain, (1, 2, 0))`: **k13** -> $k_{21}$, **k23** -> $k_{31}$, **k33** -> $k_{11}$
-
-## Parallelization aspects
-Relevant functions:
-```cpp
-// Cartesian Communicator
-// Creates a division of processors in a Cartesian grid.
-int MPI_Dims_create(int nnodes, int ndims, int dims[]);
-// Makes a new communicator to which Cartesian topology information has been attached.
-int MPI_Cart_create(MPI_Comm comm_old, int ndims, const int dims[],
-    const int periods[], int reorder, MPI_Comm *comm_cart);
-// Determines process coords in Cartesian topology given rank in group. 
-int MPI_Cart_coords(MPI_Comm comm, int rank, int maxdims,
-    int coords[]);
-// Returns the shifted source and destination ranks, given a shift direction and amount.
-int MPI_Cart_shift(MPI_Comm comm, int direction, int disp,
-    int *rank_source, int *rank_dest);
-
-// Parallel IO
-// Changes process’s view of data in file (collective). 
-int MPI_File_set_view(MPI_File fh, MPI_Offset disp,
-    MPI_Datatype etype, MPI_Datatype filetype,
-    const char *datarep, MPI_Info info);
-// Reads a file at explicitly specified offsets (blocking, collective). 
-int MPI_File_read_at_all(MPI_File fh, MPI_Offset offset,
-    void *buf, int count, MPI_Datatype datatype,
-    MPI_Status *status);
-
-// Communication
-//  Creates a contiguous datatype. 
-int MPI_Type_contiguous(int count, MPI_Datatype oldtype,
-    MPI_Datatype *newtype);
-// Sends and receives a message. 
-int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-    int dest, int sendtag, void *recvbuf, int recvcount,
-    MPI_Datatype recvtype, int source, int recvtag,
-    MPI_Comm comm, MPI_Status *status);
-
-```
 
 ## License
 

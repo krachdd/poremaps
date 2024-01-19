@@ -1,0 +1,173 @@
+/************************************************************************
+
+Parallel Finite Difference Solver for Stokes Equations in Porous Media
+Copyright (C) 2023  David Krach, Matthias Ruf
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+ * Authors:    David Krach 
+ * Date:       2021/12
+ * Contact:    david.krach@mib.uni-stuttgart.de
+ *
+ * Purpose:    void calc_flow:
+ *             main loop containing field updates, communication 
+ *             and convergence check
+ * 
+ * Contents:   
+ * 
+ * Changelog:  Version: 1.0.0
+ ***********************************************************************/
+
+
+// HEADER ***************************************************************
+#include <iostream>
+#include <stdio.h>
+#include <math.h>
+#include "mpi.h"
+#include "constants.h"
+#include "parallelization.h"
+#include "solver.h"
+#include "boundary_conditions.h"
+#include "geometry.h"
+#include "evaluation.h"
+#include "output.h"
+// **********************************************************************
+
+void calc_flow(    bool*** proc_geom, 
+                   int* size, 
+                   int* new_proc_size, 
+                   unsigned int* bc, 
+                   double* dx, 
+                   int max_iterations, 
+                   double*** press, 
+                   double*** vel_x, 
+                   double*** vel_y, 
+                   double*** vel_z,
+                   int it_write, 
+                   int it_eval, 
+                   unsigned int solver,
+                   double eps, 
+                   double porosity,
+                   int n_proc, 
+                   int rank, 
+                   int*** voxel_neighborhood, 
+                   MPI_Comm comm_cart, 
+                   int* dims, 
+                   int* cart_coords, 
+                   int* neighbors,
+                   int* starts, 
+                   int* ends,
+                   int* dom_interest,
+                   char* log_file)
+{
+
+    int i, j, k;                                                // 
+    int iteration = 0;                                          // Set current iteration to zero
+    double perm_conv = 1.0 + eps;                               // Convergence Criterion
+    double start_it0, end_it0, elapsed_seconds, secs_it_sum;    // Timer related vars
+    double phi_global;                                          // Porosity of the sample or domain of interest
+    double permeability = 0.0;                                  // Voxel based K
+    double prev_permeability = 0.0;                             // k of previous timestep
+    double perm_diff = eps + 1.0;                               // k difference t+1 and t
+    double wmax_velz = 0.0, wmean_velz = 0.0;                   // storing velocity information
+    double k13 = 0.0, k23 = 0.0, k33 = 0.0;                     // storing kii information domain of interest
+    double wk13 = 0.0, wk23 = 0.0, wk33 = 0.0;                  // storing kii information whole domain
+                                                                // main pressure gradient direction
+    bool   firstline = true;                                    // flag if first line in logfile should be written
+
+    // if porosity is given as -1.0 --> compute it by get_porosity
+    if (porosity == -1.0){
+        phi_global = get_porosity(proc_geom, new_proc_size, comm_cart);
+    }
+    else { // Use the given value, useful if e.g. solid frame is added
+        phi_global = porosity;
+    }
+
+    if (rank == 0){printf("START MAIN COMPUTATION\n");}
+
+    while (iteration < max_iterations && perm_conv >= eps){
+        // Main Loop for computation
+
+        if (rank == 0){start_it0 = MPI_Wtime();}
+        if (iteration == 0){
+            // Set inital pressure gradient
+            reapply_pressure_gradient(proc_geom, size, new_proc_size, press, comm_cart, cart_coords, dims);
+        }
+        central_diff5(proc_geom, new_proc_size, press, vel_x, vel_y, vel_z, voxel_neighborhood, 
+                      solver);
+
+        communicate_halos(press, new_proc_size, neighbors, MPI_DOUBLE, comm_cart, bc, 0);
+        communicate_halos(vel_x, new_proc_size, neighbors, MPI_DOUBLE, comm_cart, bc, 1);
+        communicate_halos(vel_y, new_proc_size, neighbors, MPI_DOUBLE, comm_cart, bc, 1);
+        communicate_halos(vel_z, new_proc_size, neighbors, MPI_DOUBLE, comm_cart, bc, 1);
+        // Set Dirichlet Boundarys for the pressure again
+        reapply_pressure_gradient(proc_geom, size, new_proc_size, press, comm_cart, cart_coords, dims);
+        
+        MPI_Barrier(comm_cart);
+
+        // evaluate convergence
+        if (iteration%it_eval == 0 && iteration > 1000){
+            perm_conv = compute_convergence(proc_geom, 
+                                            size, 
+                                            new_proc_size, 
+                                            vel_z, 
+                                            &permeability, 
+                                            comm_cart);
+
+            // write output to logfile
+            if ( iteration%it_write == 0 ){
+                compute_permeability(   proc_geom,
+                                            size,
+                                            new_proc_size,
+                                            vel_x, vel_y, vel_z,
+                                            press, 
+                                            &k13, &k23, &k33,
+                                            &wk13, &wk23, &wk33,
+                                            &wmax_velz, &wmean_velz,
+                                            comm_cart, 
+                                            starts,
+                                            dom_interest,
+                                            *dx,
+                                            phi_global);
+
+                if ( rank == 0 ){
+                    // compute relevent properties
+                    end_it0 = MPI_Wtime(); elapsed_seconds = end_it0 - start_it0; secs_it_sum += elapsed_seconds;
+                    // Write logfile
+                    write_logfile(  iteration,
+                                    k13, k23, k33,
+                                    wk13, wk23, wk33,
+                                    wmax_velz, wmean_velz,
+                                    perm_conv,
+                                    log_file,
+                                    firstline, 
+                                    (1./elapsed_seconds));
+                    firstline = false;
+                }
+            }
+        }
+        MPI_Barrier(comm_cart);
+
+        if (rank == 0 && iteration%100 == 0){
+            end_it0 = MPI_Wtime(); elapsed_seconds = end_it0 - start_it0; secs_it_sum += elapsed_seconds;
+            printf("Iteration: %i\t Convergence: %e\t", iteration, perm_conv);
+            printf("Time: %f\t TPS: %f\n", elapsed_seconds, (1./elapsed_seconds));
+        }
+        // update iteration
+        iteration++;
+    
+
+    }
+} 
+
