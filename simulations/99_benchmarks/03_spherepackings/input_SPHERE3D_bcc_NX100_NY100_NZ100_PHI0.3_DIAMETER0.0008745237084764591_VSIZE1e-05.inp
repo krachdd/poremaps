@@ -1,0 +1,14 @@
+dom_decomposition 0 0 0
+boundary_method 0
+geometry_file_name SPHERE3D_bcc_NX100_NY100_NZ100_PHI0.3_DIAMETER0.0008745237084764591_VSIZE1e-05.raw
+size_x_y_z  100 100 100
+voxel_size  1e-05
+max_iter    100000001
+it_eval    100
+it_write   100
+log_file_name permeability_SPHERE3D_bcc_NX100_NY100_NZ100_PHI0.3_DIAMETER0.0008745237084764591_VSIZE1e-05.log
+solving_algorithm 2
+eps 1e-07
+porosity -1.0
+dom_interest 0 0 0 0 0 0
+write_output 1 1 1 1

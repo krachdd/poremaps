@@ -1,3 +1,13 @@
+# POREMAPS
+*.raw
+!simulations/99_benchmarks/*/*.raw
+*.inp
+!simulations/99_benchmarks/*/*.inp
+!input_template.inp
+*.log
+STOKES_SOLVER*
+
+
 # Prerequisites
 *.d
 
