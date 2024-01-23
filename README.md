@@ -1,5 +1,5 @@
 [![POREMAPS](doc/poremaps_logo_grey.png)](https://www.mib.uni-stuttgart.de/cont/)
-**POREMAPS** is a Finite Difference based <ins>POR</ins>ous <ins>M</ins>edia <ins>A</ins>nisotropic <ins>P</ins>ermeability <ins>Solver<\ins> for Stokes flow. 
+**POREMAPS** is a Finite Difference based <ins>POR</ins>ous <ins>M</ins>edia <ins>A</ins>nisotropic <ins>P</ins>ermeability <ins>Solver</ins> for Stokes flow. 
 
 ## How to build:
 We suggest to build yourself a local version of [OpenMPI](https://www.open-mpi.org/).
