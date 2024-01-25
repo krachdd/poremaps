@@ -103,7 +103,7 @@ provided in the topmost directory of source code tree.
 
 ## How to cite
 
-The solver is research software and developed at research institutions. You can cite **specific releases** via [**DaRUS**](https://darus.uni-stuttgart.de)
+The solver is research software and developed at research institutions. You can cite **specific releases** via [**DaRUS**](https://doi.org/10.18419/darus-3676)
 
 ## Developer
 
