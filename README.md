@@ -96,9 +96,8 @@ original domain: **k13** -> $k_{13}$, **k23** -> $k_{23}$, **k33** -> $k_{33}$
 
 ## License
 
-The solver is licensed under the terms and conditions of the GNU General
-Public License (GPL) version 3 or - at your option - any later
-version. The GPL can be [found online](https://www.gnu.org/licenses/gpl-3.0.en.html) or in the LICENSE.md file
+The solver is licensed under the terms and conditions of the MIT License (MIT) version 3 or - at your option - any later
+version. The License can be [found online](https://opensource.org/license/mit/) or in the LICENSE.md file
 provided in the topmost directory of source code tree.
 
 ## How to cite
