@@ -117,13 +117,13 @@ If you are using poremaps in scientific publications and in the academic context
 
 ```bib
 @data{Krach2024b,
-author = {Krach, David and Ruf, Matthias and Steeb, Holger},
-publisher = {DaRUS},
-title = {{POREMAPS 1.0.0: Code, Benchmarks, Applications}},
-year = {2024},
-version = {DRAFT VERSION},
-doi = {10.18419/darus-3676},
-url = {https://doi.org/10.18419/darus-3676}
+    author = {Krach, David and Ruf, Matthias and Steeb, Holger},
+    publisher = {DaRUS},
+    title = {{POREMAPS 1.0.0: Code, Benchmarks, Applications}},
+    year = {2024},
+    version = {DRAFT VERSION},
+    doi = {10.18419/darus-3676},
+    url = {https://doi.org/10.18419/darus-3676}
 }
 ```
 
