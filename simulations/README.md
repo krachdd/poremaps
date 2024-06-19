@@ -1,4 +1,4 @@
-# Benchmarks for Parallel Stokes Solver
+# Stokes Solver Benchmarks
 
 ### Poiseuille Flow in a Tube 
 Compare the velocity in main flow direction $v_3$ to the analytical solution: 
