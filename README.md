@@ -61,27 +61,27 @@ Parameters explained:
 
 ## Boundary Conditions
 
-Choose the **boundary_method** in input file according to the requirements:
+Choose the **boundary_method** in the input file according to the requirements:
 
 | Value | Description |
 |:-----:|-------------|
 | 0 | periodic in all three directions |
 | 1 | periodic in direction of main pressure gradient, slip condition in the two other directions |
 | 2 | periodic in direction of main pressure gradient, no-slip condition in the two other directions |
-| 3 | not-periodic in direction of main pressure gradient, slip condition in the two other directions |
-| 4 | not-periodic in direction of main pressure gradient, no-slip condition in the two other directions |
+| 3 | non-periodic in direction of main pressure gradient, slip condition in the two other directions |
+| 4 | non-periodic in direction of main pressure gradient, no-slip condition in the two other directions |
 
 
 ## Output files
-The solver creates three files for the final velocity fields (`velx_*.raw`, `vely_*.raw`, `velz_*.raw`) ( $\mathbf{e}_1-$, $\mathbf{e}_2-$, $\mathbf{e}_3-$ direction ) and one for the final pressure field (`press_*.raw`). Additionaly, the determined voxel neighborhood cases (`voxel_neighborhood_*.raw`) and domain decomposition (`domain_decomp_*.raw`) are created. All files are in raw image format (`double` for all velocity and pressure files, `int` for neighborhood and domain decomposition). Using the file `fields2vtu.py` allows a direct conversion into a `*.vtu` file which can be visualized, e.g., with [ParaView](https://www.paraview.org/). All intermediate and final computational results for the permeability are included in the file `permeability_*.log`. The different entries of the `permeability_*.log` file are briefly described below:
+The solver creates three files for the final velocity field (`velx_*.raw`, `vely_*.raw`, `velz_*.raw`) ( $\mathbf{e}_1-$, $\mathbf{e}_2-$, $\mathbf{e}_3-$ direction ) and one for the final pressure field (`press_*.raw`). Additionaly, the determined voxel neighborhood cases (`voxel_neighborhood_*.raw`) and domain decomposition (`domain_decomp_*.raw`) are created. All files are in raw image format (`double` for all velocity and pressure files, `int` for neighborhood and domain decomposition). Using the file `fields2vtu.py` allows a direct conversion into a `*.vtu` file which can be visualized, e.g., with [ParaView](https://www.paraview.org/). All intermediate and final computational results for the permeability are included in the file `permeability_*.log`. The different entries of the `permeability_*.log` file are briefly described below:
 
 1. **iteration**: Number of the iteration.
 2. **conv**: Convergence criterion. 
 3. **TPS**: Computed time steps per second. 
-4. **wmax_velz**: Maximum fluid voxel velocity (`z`-component), physical dimensions. 
-5. **wmean_velz**: Mean fluid voxel velocity (`z`-component), physical dimensions.
-6. **k13**, **k23**, **k33**: Permeabilities in the given spatial directions. Pressure gradient and flux are computed based on the given domain of interest (see input file). If no domain of interest if given, $k_{13} = k_{23} = k_{33} = 0.0 \\, $. 
-7. **wk13**, **wk23**, **wk33**: Permeabilities in the given spatial directions. Pressure gradient and flux are computed based on the whole domain.
+4. **wmax_velz**: Maximum fluid voxel velocity (`z`-component) $[\mathrm{m} / \mathrm{s}]$. 
+5. **wmean_velz**: Mean fluid voxel velocity (`z`-component) $[\mathrm{m} / \mathrm{s}]$.
+6. **k13**, **k23**, **k33**: Intrinsic permeabilities $[\mathrm{m}^2]$ in the given spatial directions. Pressure gradient and flux are computed based on the given domain of interest (see input file). If no domain of interest is given, $k_{13}$ = $k_{23}$ = $k_{33}$ = $0.0$. 
+7. **wk13**, **wk23**, **wk33**: Intrinsic permeabilities $[\mathrm{m}^2]$ in the given spatial directions. Pressure gradient and flux are computed based on the whole domain.
 
 
 ## Compute the permeability tensor
@@ -96,13 +96,38 @@ original domain: **k13** -> $k_{13}$, **k23** -> $k_{23}$, **k33** -> $k_{33}$
 
 ## License
 
-The solver is licensed under the terms and conditions of the MIT License (MIT) version 3 or - at your option - any later
+The solver is licensed under the terms and conditions of the MIT License version 3 or - at your option - any later
 version. The License can be [found online](https://opensource.org/license/mit/) or in the LICENSE.md file
 provided in the topmost directory of source code tree.
 
 ## How to cite
 
-The solver is research software and developed at research institutions. You can cite **specific releases** via [**DaRUS**](https://doi.org/10.18419/darus-3676)
+The solver is research software and developed at a research institute. Please cite **specific releases** according to [**DaRUS**](https://doi.org/10.18419/darus-3676) version.
+
+If you are using poremaps in scientific publications and in the academic context, please cite our publications:
+
+```bib
+@unpublished{Krach2024a,
+    author = {Krach, David and Ruf, Matthias and Steeb, Holger},
+    title = {POREMAPS: A finite difference based Porous Media Anisotropic Permeability Solver for Stokes flow},
+    year={2024},
+    note = {(to be submitted)} 
+}
+```
+
+```bib
+@data{Krach2024b,
+author = {Krach, David and Ruf, Matthias and Steeb, Holger},
+publisher = {DaRUS},
+title = {{POREMAPS 1.0.0: Code, Benchmarks, Applications}},
+year = {2024},
+version = {DRAFT VERSION},
+doi = {10.18419/darus-3676},
+url = {https://doi.org/10.18419/darus-3676}
+}
+```
+
+
 
 ## Developer
 
