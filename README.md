@@ -71,6 +71,7 @@ Choose the **boundary_method** in the input file according to the requirements:
 | 3 | non-periodic in direction of main pressure gradient, slip condition in the two other directions |
 | 4 | non-periodic in direction of main pressure gradient, no-slip condition in the two other directions |
 
+## Input files
 
 ## Output files
 The solver creates three files for the final velocity field (`velx_*.raw`, `vely_*.raw`, `velz_*.raw`) ( $\mathbf{e}_1-$, $\mathbf{e}_2-$, $\mathbf{e}_3-$ direction ) and one for the final pressure field (`press_*.raw`). Additionaly, the determined voxel neighborhood cases (`voxel_neighborhood_*.raw`) and domain decomposition (`domain_decomp_*.raw`) are created. All files are in raw image format (`double` for all velocity and pressure files, `int` for neighborhood and domain decomposition). Using the file `fields2vtu.py` allows a direct conversion into a `*.vtu` file which can be visualized, e.g., with [ParaView](https://www.paraview.org/). All intermediate and final computational results for the permeability are included in the file `permeability_*.log`. The different entries of the `permeability_*.log` file are briefly described below:
@@ -82,6 +83,10 @@ The solver creates three files for the final velocity field (`velx_*.raw`, `vely
 5. **wmean_velz**: Mean fluid voxel velocity (`z`-component) $[\mathrm{m} / \mathrm{s}]$.
 6. **k13**, **k23**, **k33**: Intrinsic permeabilities $[\mathrm{m}^2]$ in the given spatial directions. Pressure gradient and flux are computed based on the given domain of interest (see input file). If no domain of interest is given, $k_{13}$ = $k_{23}$ = $k_{33}$ = $0.0$. 
 7. **wk13**, **wk23**, **wk33**: Intrinsic permeabilities $[\mathrm{m}^2]$ in the given spatial directions. Pressure gradient and flux are computed based on the whole domain.
+
+
+## Aspects of parallelization
+There is no simple answer to the question of how many cores can be recommended for specific domain sizes. We recommend at least one subdomain of $50^3$ voxels (for large porosities) and maximum $100^3$ voxels (for small porosities) per core. This should be an appropriate consideration, but is basically more of a rule of thumb than a requirement. In principle, significantly larger subdomains can be processed per core, and if possible, for example, 8 different simulations can be computed on one desktop computer. If there are concerns about parallelization, one can run a short simulation of a problem ($1000$ time steps) and take a look at the TPS values in the log file. This might also useful/interesting when experimenting with fixed domain decompositions. In our paper, see below, you can also find core numbers we used for larger simulations ($>1500^3$ voxels).
 
 
 ## Compute the permeability tensor
