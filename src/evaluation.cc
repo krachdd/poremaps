@@ -192,8 +192,8 @@ void compute_permeability(  bool*** proc_geom,
     // Compute permeabilities of domain of interest in real dimensions
     if ( eval_dofi == true ){
         pgrad_dofi = ((pendsum/pendflcount) - (p0sum/p0flcount))/(dom_interest[5] - dom_interest[4]);
-        *k13 = -(velx_sum/flcount) * (1.0/Re) * porosity * (1.0/pgrad_dofi) * pow(voxelsize,2);
-        *k23 = -(vely_sum/flcount) * (1.0/Re) * porosity * (1.0/pgrad_dofi) * pow(voxelsize,2);
+        *k13 = (velx_sum/flcount) * (1.0/Re) * porosity * (1.0/pgrad_dofi) * pow(voxelsize,2);
+        *k23 = (vely_sum/flcount) * (1.0/Re) * porosity * (1.0/pgrad_dofi) * pow(voxelsize,2);
         *k33 = (velz_sum/flcount) * (1.0/Re) * porosity * (1.0/pgrad_dofi) * pow(voxelsize,2);
     }
     else {
@@ -203,9 +203,9 @@ void compute_permeability(  bool*** proc_geom,
     }
 
     // Compute permeabilities and velocities of whole domain in physical dimensions
-    *wk13 = -(wvelx_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
-    *wk23 = -(wvely_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
-    *wk33 =  (wvelz_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
+    *wk13 = (wvelx_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
+    *wk23 = (wvely_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
+    *wk33 = (wvelz_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
     
     *wmean_velz = wvelz_sum/wflcount * voxelsize;
     *wmax_velz = wvelz_max * voxelsize;
