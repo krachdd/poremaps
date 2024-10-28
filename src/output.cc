@@ -210,7 +210,7 @@ void write_logfile( int iteration,
 
 
     if (firstline == true){
-        fprintf(log_file, "# iteration, conv, TPS, wmax_velz, wmean_velz, k13, k23, k33, wk13, wk23, wk33\n");
+        fprintf(log_file, "# iteration, conv, TPS [1/s], wmax_velz [m/s], wmean_velz [m/s], k13 [m^2], k23 [m^2], k33 [m^2], wk13 [m^2], wk23 [m^2], wk33 [m^2]\n");
     }
     fprintf(log_file, "%i, %e, %e, %e, %e, %e, %e, %e, %e, %e, %e\n", 
                 iteration,
