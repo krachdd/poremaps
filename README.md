@@ -117,11 +117,17 @@ The solver is research software and developed at a research institute. Please ci
 If you are using poremaps in scientific publications and in the academic context, please cite our publications:
 
 ```bib
-@unpublished{Krach2024a,
-    author = {Krach, David and Ruf, Matthias and Steeb, Holger},
-    title = {POREMAPS: A finite difference based Porous Media Anisotropic Permeability Solver for Stokes flow},
-    year={2024},
-    note = {(to be submitted)} 
+@article{Krach2024a,
+    author={Krach, David and Ruf, Matthias and Steeb, Holger}, 
+    title={{POREMAPS}: A finite difference based Porous Media Anisotropic Permeability Solver for   Stokes flow}, 
+    DOI={10.69631/ipj.v2i1nr39}, 
+    journal={InterPore Journal}, 
+    pages={IPJ260225–7}, 
+    volume={2}, 
+    number={1}, 
+    month={Feb.}, 
+    year={2025}, 
+    place={De Bilt, The Netherlands}
 }
 ```
 
