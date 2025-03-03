@@ -147,5 +147,9 @@ If you are using poremaps in scientific publications and in the academic context
 
 ## Developer
 
-- [David Krach](https://www.mib.uni-stuttgart.de/institute/team/Krach/)
-- [Matthias Ruf](https://www.mib.uni-stuttgart.de/institute/team/Ruf-00001/)
+- [David Krach](https://www.mib.uni-stuttgart.de/institute/team/Krach/) E-mail: [david.krach@mib.uni-stuttgart.de](mailto:david.krach@mib.uni-stuttgart.de)
+- [Matthias Ruf](https://www.mib.uni-stuttgart.de/institute/team/Ruf-00001/) E-mail: [matthias.ruf@mib.uni-stuttgart.de](mailto:matthias.ruf@mib.uni-stuttgart.de)
+
+## Contact
+- [Software Support Institute of Applied Mechanics](mailto:software@mib.uni-stuttgart.de)
+- [Data Support Institute of Applied Mechanics](mailto:data@mib.uni-stuttgart.de)
