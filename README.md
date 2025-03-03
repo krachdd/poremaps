@@ -133,7 +133,7 @@ If you are using poremaps in scientific publications and in the academic context
 ```
 
 ```bib
-@data{Krach2024b,
+@data{Krach2024a,
     author = {Krach, David and Ruf, Matthias and Steeb, Holger},
     publisher = {DaRUS},
     title = {{POREMAPS 1.0.0: Code, Benchmarks, Applications}},
@@ -149,7 +149,7 @@ If you are using poremaps in scientific publications and in the academic context
 [![Identifier](https://img.shields.io/badge/Publication_ADWR_Krach_et.al._(2025)-blue)](https://doi.org/10.1016/j.advwatres.2024.104860)
 
 ```bib
-@article{Krach2025a,
+@article{Krach2025b,
     title = {A novel geometry-informed drag term formulation for pseudo-3D Stokes simulations with varying apertures},
     journal = {Advances in Water Resources},
     volume = {195},
