@@ -74,6 +74,7 @@ z += 0.5*vs - 0.5*zs*vs
 data = {}
 # read geometry
 fname_res = fname
+print(f'Input file: fname_res')
 if os.path.isfile(fname_res):
     domain = import_rawfile(fname_res, [xs, ys, zs], dtype = np.uint8)
     data['porespace'] = domain
@@ -135,4 +136,4 @@ else:
 
 # export results to one combined VTK File
 filename_res = f'fields_{fname}'
-vtk(filename_res.rsplit('.')[0], x, y, z, data = data)
+vtk(filename_res.replace('.raw', ''), x, y, z, data = data)
