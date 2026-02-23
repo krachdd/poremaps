@@ -78,19 +78,15 @@ void calc_flow(    bool*** proc_geom,
                    char* log_file)
 {
 
-    int i, j, k;                                                // 
-    int iteration = 0;                                          // Set current iteration to zero
-    double perm_conv = 1.0 + eps;                               // Convergence Criterion
-    double start_it0, end_it0, elapsed_seconds, secs_it_sum;    // Timer related vars
-    double phi_global;                                          // Porosity of the sample or domain of interest
-    double permeability = 0.0;                                  // Voxel based K
-    double prev_permeability = 0.0;                             // k of previous timestep
-    double perm_diff = eps + 1.0;                               // k difference t+1 and t
-    double wmax_velz = 0.0, wmean_velz = 0.0;                   // storing velocity information
-    double k13 = 0.0, k23 = 0.0, k33 = 0.0;                     // storing kii information domain of interest
-    double wk13 = 0.0, wk23 = 0.0, wk33 = 0.0;                  // storing kii information whole domain
-                                                                // main pressure gradient direction
-    bool   firstline = true;                                    // flag if first line in logfile should be written
+    int iteration = 0;                          // current iteration counter
+    double perm_conv = 1.0 + eps;               // convergence criterion (initialised above threshold)
+    double start_it0, end_it0, elapsed_seconds; // per-iteration timing (rank 0 only)
+    double phi_global;                          // domain porosity
+    double permeability = 0.0;                  // mean z-velocity based permeability (voxel units)
+    double wmax_velz = 0.0, wmean_velz = 0.0;   // whole-domain velocity diagnostics
+    double k13 = 0.0, k23 = 0.0, k33 = 0.0;    // permeability tensor, domain of interest [m^2]
+    double wk13 = 0.0, wk23 = 0.0, wk33 = 0.0; // permeability tensor, whole domain [m^2]
+    bool   firstline = true;                    // controls whether to write the header line in the log file
 
     // if porosity is given as -1.0 --> compute it by get_porosity
     if (porosity == -1.0){
@@ -119,8 +115,6 @@ void calc_flow(    bool*** proc_geom,
         communicate_halos(vel_z, new_proc_size, neighbors, MPI_DOUBLE, comm_cart, bc, 1);
         // Set Dirichlet Boundarys for the pressure again
         reapply_pressure_gradient(proc_geom, size, new_proc_size, press, comm_cart, cart_coords, dims);
-        
-        MPI_Barrier(comm_cart);
 
         // evaluate convergence
         if (iteration%it_eval == 0 && iteration > 1000){
@@ -148,9 +142,7 @@ void calc_flow(    bool*** proc_geom,
                                             phi_global);
 
                 if ( rank == 0 ){
-                    // compute relevent properties
-                    end_it0 = MPI_Wtime(); elapsed_seconds = end_it0 - start_it0; secs_it_sum += elapsed_seconds;
-                    // Write logfile
+                    end_it0 = MPI_Wtime(); elapsed_seconds = end_it0 - start_it0;
                     write_logfile(  iteration,
                                     k13, k23, k33,
                                     wk13, wk23, wk33,
@@ -163,10 +155,9 @@ void calc_flow(    bool*** proc_geom,
                 }
             }
         }
-        MPI_Barrier(comm_cart);
 
         if (rank == 0 && iteration%100 == 0){
-            end_it0 = MPI_Wtime(); elapsed_seconds = end_it0 - start_it0; secs_it_sum += elapsed_seconds;
+            end_it0 = MPI_Wtime(); elapsed_seconds = end_it0 - start_it0;
             printf("Iteration: %i\t Convergence: %e\t", iteration, perm_conv);
             printf("Time: %f\t TPS: %f\n", elapsed_seconds, (1./elapsed_seconds));
         }

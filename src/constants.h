@@ -32,16 +32,14 @@ OTHER DEALINGS IN THE SOFTWARE.
  * Contents:   
  * 
  * Changelog:  Version: 1.0.0
-
-file_name_char      : Number of bytes reserved in the memory for saving a char series
-pass                : Empty function to pass not yet specified functions
-omega_sor           : Relaxation parameter for the SOR solver
-Re                  : Reynolds number 
-ndims               : Number of dimensions of Cartesian grid
-c2                  : Dimensionless speed of sound
-ndims               : Number of spatial dimensions
-dt                  : Timestep size play with this number to decrease
-                      convergence time
+ *
+ * file_name_char  : max bytes for a filename string
+ * pass            : no-op placeholder macro
+ * omega_sor       : relaxation factor for the SOR solver (1.0 = Gauss-Seidel)
+ * Re              : dimensionless viscosity (Reynolds-like parameter)
+ * ndims           : number of spatial dimensions of the Cartesian grid
+ * c2              : dimensionless speed-of-sound squared (artificial compressibility)
+ * dt              : pseudo-time step size; reduce to improve stability
  ***********************************************************************/
 
 #ifndef file_name_char

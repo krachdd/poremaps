@@ -26,9 +26,7 @@ OTHER DEALINGS IN THE SOFTWARE.
  * Date:       2021/02
  * Contact:    david.krach@mib.uni-stuttgart.de
  *
- * Purpose:    
- *
- * Contents:   Header for initialize.cc
+ * Purpose:    Header for initialize.cc
  * 
  * Changelog:  Version: 1.0.0
  ***********************************************************************/ 

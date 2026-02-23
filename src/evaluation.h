@@ -26,7 +26,7 @@ OTHER DEALINGS IN THE SOFTWARE.
  * Date:       2021/12
  * Contact:    david.krach@mib.uni-stuttgart.de
  *
- * Purpose:    Header for evaluate.cc
+ * Purpose:    Header for evaluation.cc
  *
  * Contents:   
  * 

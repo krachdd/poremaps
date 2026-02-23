@@ -1,35 +1,69 @@
 [![POREMAPS](doc/poremaps_logo_grey.png)](https://www.mib.uni-stuttgart.de/cont/)
-**POREMAPS** is a Finite Difference based <ins>POR</ins>ous <ins>M</ins>edia <ins>A</ins>nisotropic <ins>P</ins>ermeability <ins>S</ins>olver for Stokes flow. 
+
+**POREMAPS** is a Finite Difference based <ins>POR</ins>ous <ins>M</ins>edia <ins>A</ins>nisotropic <ins>P</ins>ermeability <ins>S</ins>olver for Stokes flow.
 
 [![Identifier](https://img.shields.io/badge/doi-10.18419%2Fdarus--3676-d45815)](https://doi.org/10.18419/darus-3676)
 [![Identifier](https://img.shields.io/badge/Publication-blue)](https://doi.org/10.69631/ipj.v2i1nr39)
 
-## How to build:
-We suggest to build yourself a local version of [OpenMPI](https://www.open-mpi.org/).
-The code was tested with the following versions:
-- Linux:
-    1. `openmpi-3.1.5`
-    2. `openmpi-4.1.5`
-    3. `openmpi-5.0.1`
-- Windows
-    1. `MS-MPI v10.1.1`
+Given a binarized 3-D pore geometry (`.raw` file), POREMAPS solves the Stokes equations on a Cartesian finite-difference grid using MPI domain decomposition and computes the anisotropic intrinsic permeability tensor of the sample.
 
-Open `makefile` and edit `CLINKER` path to your `mpiCC`. The build command creates an executable `POREMAPS` in the `bin` directory. 
+---
+
+## Contents
+
+- [How to build](#how-to-build)
+- [How to run](#how-to-run)
+- [Testing](#testing)
+- [Boundary conditions](#boundary-conditions)
+- [Input data](#input-data)
+- [Output files](#output-files)
+- [Aspects of parallelization](#aspects-of-parallelization)
+- [Compute the permeability tensor](#compute-the-permeability-tensor)
+- [License](#license)
+- [How to cite](#how-to-cite)
+
+---
+
+## How to build
+
+POREMAPS requires an MPI C++ compiler (`mpiCC`). We recommend building a local version of [OpenMPI](https://www.open-mpi.org/). Tested versions:
+
+| Platform | MPI implementation |
+|---|---|
+| Linux | `openmpi-3.1.5`, `openmpi-4.1.5`, `openmpi-5.0.1` |
+| Windows 10 | `MS-MPI v10.1.1` |
+
+**Linux** — if `mpiCC` is on your `PATH` (standard OpenMPI installation), just run:
 ```shell
-linux@fastmachine:~$ cd PATH/TO/POREMAPS/src/
-linux@fastmachine:~$ vim makefile # edit CLINKER
-linux@fastmachine:~$ make
+cd PATH/TO/POREMAPS/src/
+make
 ```
-To build it on MS Windows (MS Windows 10), we recommend to create a Visual Studio (v16.8.3) project from the existing code and link to the corresponding MS-MPI (v10.1.1) via the project properties. Tested setup in brackets.
+
+If your MPI compiler is installed at a non-standard location, pass it on the command line:
+```shell
+make MPICXX=/path/to/your/mpiCC
+```
+
+A debug build (no optimisation, debug symbols) is also available:
+```shell
+make debug
+```
+
+The executable `POREMAPS` is placed in the `bin/` directory.
+
+**Windows** — create a Visual Studio (v16.8.3) project from the source files and link MS-MPI (v10.1.1) via the project properties.
+
+---
 
 ## How to run
-Copy the executable `POREMAPS` to the folder with input file and geometry and run by 
+
 ```shell
-linux@fastmachine:~$ mylocal_mpirun -np 8 POREMAPS my_inputfile
+mpirun -np 8 ./bin/POREMAPS my_inputfile.inp
 ```
 
-Parameters in input file `input_template.inp`:
-```cpp
+The input file must follow the exact format shown in `input_template.inp`. All parameters are read in order; the field names are ignored by the parser.
+
+```text
 dom_decomposition 0 0 0
 boundary_method 0
 geometry_file_name ptube_54_54_50_vs_2e-05.raw
@@ -45,127 +79,219 @@ porosity 1.0
 dom_interest 0 0 0 0 0 0
 write_output 1 1 0 0
 ```
-Parameters explained:
-1. **dom_decomposition**: Number of Ranks in $\mathbf{e}_1-$, $\mathbf{e}_2-$ and $\mathbf{e}_3-$ direction. If MPI should do this by itself set it to `0 0 0`.
-2. **boundary_method**: Information see below.
-3. **geometry_file_name**: File name of the input geometry (`.raw`-file). 
-4. **size_x_y_z**: Size of the input geometry in voxel.
-5. **voxel_size**: Voxel size in meter. 
-6. **max_iter**: Maximum number of iterations. 
-7. **it_eval**: Frequency to evaluate convergence criterion. 
-8. **it_write**: Frequency to write log file.
-9. **log_file_name**: Name of log file. 
-10. **solving_algorithm**: Algorithm see `solver.cc` for more information. 
-11. **eps**: Convergence criterion.
-12. **porosity**: Porosity of the sample or domain of interest. If porosity equals -1.0 the solver computes it for the whole domain (not the effective porosity). Specify the porosity if, e.g., solid frames are used. 
-13. **dom_interest**: Start and End of domain of interest for all three directions in voxel. Solver gives the permeability of this subdomain and for whole domain if set. If all entries equal 0 only permeability of the whole domain is computed. 
-14. **write_output** Defines which `.raw`-file output to be written. Four entries for velocity (all three components), pressure, neighborhood and domain decomposition in that order. If 1, field is written. 
 
+### Parameter reference
 
-## Boundary Conditions
+| Parameter | Value(s) | Description |
+|---|---|---|
+| `dom_decomposition` | `int int int` | Number of MPI ranks in $\mathbf{e}_1$, $\mathbf{e}_2$, $\mathbf{e}_3$. Set to `0 0 0` to let MPI choose automatically. |
+| `boundary_method` | `0`–`4` | Physical boundary setup; see [Boundary conditions](#boundary-conditions). |
+| `geometry_file_name` | `string` | Path to the input geometry file (`.raw`). |
+| `size_x_y_z` | `int int int` | Global domain size in voxels $(n_x,\ n_y,\ n_z)$. |
+| `voxel_size` | `float` | Voxel edge length in metres. |
+| `max_iter` | `int` | Maximum number of pseudo-time iterations. |
+| `it_eval` | `int` | Evaluate the convergence criterion every `it_eval` iterations. |
+| `it_write` | `int` | Write a log entry every `it_write` iterations (must be a multiple of `it_eval`). |
+| `log_file_name` | `string` | Path for the output log file. |
+| `solving_algorithm` | `1`, `2`, or `3` | `1` = Jacobi, `2` = Gauss–Seidel, `3` = SOR. |
+| `eps` | `float` | Convergence threshold; iteration stops when the relative permeability change falls below this value. |
+| `porosity` | `float` | Porosity of the sample. Set to `-1.0` to have the solver compute it from the geometry (not the effective porosity). Specify explicitly when using solid frames or sub-domain evaluation. |
+| `dom_interest` | `x_min x_max y_min y_max z_min z_max` | Voxel index bounds of a sub-domain of interest. The solver reports additional permeability values for this region. Set all entries to `0` to skip sub-domain evaluation. |
+| `write_output` | `int int int int` | Controls which field files are written: velocity (`velx/y/z`), pressure, voxel neighbourhood, domain decomposition — in that order. `1` = write, `0` = skip. |
 
-Choose the **boundary_method** in the input file according to the requirements:
+---
 
-| Value | Description |
-|:-----:|-------------|
-| 0 | periodic in all three directions |
-| 1 | periodic in direction of main pressure gradient, slip condition in the two other directions |
-| 2 | periodic in direction of main pressure gradient, no-slip condition in the two other directions |
-| 3 | non-periodic in direction of main pressure gradient, slip condition in the two other directions |
-| 4 | non-periodic in direction of main pressure gradient, no-slip condition in the two other directions |
+## Testing
+
+A Python test suite covering the core numerical kernels lives in the `tests/` directory. The tests verify the finite-difference stencils, domain decomposition arithmetic, boundary condition assignment, and permeability and convergence formulae via reference implementations that mirror the C++ source without requiring MPI.
+
+**Dependencies** — `numpy` and `pytest`:
+```shell
+pip install numpy pytest
+```
+
+**Run all unit tests** from the repository root:
+```shell
+pytest tests/
+```
+
+**Run with verbose output:**
+```shell
+pytest tests/ -v
+```
+
+**Integration tests** invoke the compiled `POREMAPS` binary on small generated geometries. They require `mpirun` on `PATH` and the binary to be built. They are opt-in:
+```shell
+pytest tests/ --run-integration
+```
+
+| Module | Functions tested | Source file |
+|---|---|---|
+| `test_solver.py` | `split_number`, `get_2nd_derivation` | `solver.cc` |
+| `test_geometry.py` | `eval_geometry`, `get_dom_limits`, `get_proc_porosity` | `geometry.cc` |
+| `test_evaluation.py` | `compute_permeability`, `compute_convergence` | `evaluation.cc` |
+| `test_initialize.py` | `determine_comm_pattern`, `set_halos_initial` | `initialize.cc` |
+| `test_integration.py` | Full binary run via `mpirun` | — (opt-in) |
+
+---
+
+## Boundary conditions
+
+The main pressure gradient and flow direction is always $\mathbf{e}_3$ (z). Choose `boundary_method` according to the physical setup:
+
+| Value | z-direction | x- and y-directions |
+|:-----:|---|---|
+| `0` | periodic | periodic |
+| `1` | periodic | slip walls |
+| `2` | periodic | no-slip walls |
+| `3` | non-periodic (pressure-driven) | slip walls |
+| `4` | non-periodic (pressure-driven) | no-slip walls |
+
+---
 
 ## Input data
-8-bit RAW datasets are unprocessed, binary image files where each pixel's intensity is stored as an 8-bit value (ranging from 0 to 255). In POREMAPS we use binarized data resulting in a dataset consisting of zeros (fluid voxel) and ones (solid voxels). These datasets contain only pixel data without any additional headers or metadata, meaning they lack information about dimensions or image format. As a result, the user must manually specify these parameters when opening or processing the files. The solver expects to read data stored Fortran-like index order. 
-In `python` we suggest to use libraries such as `numpy` and `matplotlib` or `PIL` to open the file and display slices of the 3D-image. See the `python` script `fields2vtu.py` for an example. The mentioned script also helps to convert the `.raw` data into `.vtu` format to open them with [ParaView](https://www.paraview.org/). 
-For the input dataset, permeability, meaning at least one available flow path through the material, must be ensured (this can be tested using a labeling algorithm `scipy.ndimage.label`), where only face-to-face connections are considered permeable. Beyond that, POREMAPS does not undertake any changes to the domains. If, for example, mirrored domains are to be used, this must be done in preprocessing by the user. We also recommend using `python`, `numpy` for this.
+
+POREMAPS reads 8-bit binary (`.raw`) geometry files. Each byte encodes one voxel: `0` = fluid, `1` = solid. There is no file header — dimensions must be provided via `size_x_y_z` in the input file.
+
+**Byte order:** data must be stored with x varying fastest (Fortran index order). When preparing input files with NumPy, use a `(nz, ny, nx)` shaped array written in C order, which gives x-fastest layout:
+
+```python
+import numpy as np
+geom = np.zeros((nz, ny, nx), dtype=np.uint8)  # 0 = fluid, 1 = solid
+geom.tofile("geometry.raw")  # default C order → x varies fastest
+```
+
+**Connectivity:** the geometry must contain at least one connected flow path from the inlet to the outlet face (face-to-face connectivity). This can be verified with:
+
+```python
+from scipy.ndimage import label
+labeled, n = label(geom == 0)  # label connected fluid regions
+```
+
+Preprocessing (mirroring, padding, solid frame addition) must be done before passing the file to POREMAPS. We recommend NumPy for this.
+
+To visualise `.raw` output fields, use the included `fields2vtu.py` script to convert them to `.vtu` format for [ParaView](https://www.paraview.org/).
+
+---
 
 ## Output files
-The solver creates three files for the final velocity field (`velx_*.raw`, `vely_*.raw`, `velz_*.raw`) ( $\mathbf{e}_1-$, $\mathbf{e}_2-$, $\mathbf{e}_3-$ direction ) and one for the final pressure field (`press_*.raw`). Additionaly, the determined voxel neighborhood cases (`voxel_neighborhood_*.raw`) and domain decomposition (`domain_decomp_*.raw`) are created. All files are in raw image format (`double` for all velocity and pressure files, `int` for neighborhood and domain decomposition). Using the file `fields2vtu.py` allows a direct conversion into a `*.vtu` file which can be visualized, e.g., with [ParaView](https://www.paraview.org/). All intermediate and final computational results for the permeability are included in the file `permeability_*.log`. The different entries of the `permeability_*.log` file are briefly described below:
 
-1. **iteration**: Number of the iteration.
-2. **conv**: Convergence criterion. 
-3. **TPS**: Computed time steps per second. 
-4. **wmax_velz**: Maximum fluid voxel velocity (`z`-component) $[\mathrm{m} / \mathrm{s}]$. 
-5. **wmean_velz**: Mean fluid voxel velocity (`z`-component) $[\mathrm{m} / \mathrm{s}]$.
-6. **k13**, **k23**, **k33**: Intrinsic permeabilities $[\mathrm{m}^2]$ in the given spatial directions. Pressure gradient and flux are computed based on the given domain of interest (see input file). If no domain of interest is given, $k_{13}$ = $k_{23}$ = $k_{33}$ = $0.0$. 
-7. **wk13**, **wk23**, **wk33**: Intrinsic permeabilities $[\mathrm{m}^2]$ in the given spatial directions. Pressure gradient and flux are computed based on the whole domain.
+### Field files (`.raw`)
 
+Written when the corresponding `write_output` flag is set to `1`:
+
+| File pattern | Data type | Content |
+|---|---|---|
+| `velx_*.raw`, `vely_*.raw`, `velz_*.raw` | `double` | Final velocity field ($\mathbf{e}_1$, $\mathbf{e}_2$, $\mathbf{e}_3$ components) |
+| `press_*.raw` | `double` | Final pressure field |
+| `voxel_neighborhood_*.raw` | `int` | Voxel neighbourhood case codes |
+| `domain_decomp_*.raw` | `int` | MPI domain decomposition map |
+
+Use `fields2vtu.py` to convert any of these to `.vtu` for visualisation in [ParaView](https://www.paraview.org/).
+
+### Log file (`.log`)
+
+One row per write event; columns in order:
+
+| Column | Unit | Description |
+|---|---|---|
+| `iteration` | — | Iteration number |
+| `conv` | — | Relative permeability change (convergence criterion) |
+| `TPS` | 1/s | Time steps computed per wall-clock second |
+| `wmax_velz` | m/s | Maximum fluid-voxel z-velocity (whole domain) |
+| `wmean_velz` | m/s | Mean fluid-voxel z-velocity (whole domain) |
+| `k13`, `k23`, `k33` | m² | Permeability components for the `dom_interest` sub-domain (`0.0` if not set) |
+| `wk13`, `wk23`, `wk33` | m² | Permeability components for the whole domain |
+
+---
 
 ## Aspects of parallelization
-There is no simple answer to the question of how many cores can be recommended for specific domain sizes. We recommend at least one subdomain of $50^3$ voxels (for large porosities) and maximum $100^3$ voxels (for small porosities) per core. This should be an appropriate consideration, but is basically more of a rule of thumb than a requirement. In principle, significantly larger subdomains can be processed per core, and if possible, for example, 8 different simulations can be computed on one desktop computer. If there are concerns about parallelization, one can run a short simulation of a problem ($1000$ time steps) and take a look at the TPS values in the log file. This might also useful/interesting when experimenting with fixed domain decompositions. In our paper, see below, you can also find core numbers we used for larger simulations ($>1500^3$ voxels).
 
+A useful rule of thumb is to target **50³–100³ voxels per MPI rank** (smaller sub-domains for high-porosity samples, larger for low-porosity ones). Larger sub-domains are technically possible and may be preferable when memory bandwidth is the bottleneck.
+
+To assess parallel efficiency for a given problem, run a short simulation (a few hundred iterations) and inspect the TPS value in the log. Experimenting with manual `dom_decomposition` settings versus the automatic (`0 0 0`) decomposition can also be worthwhile for non-cubic domains. Core counts used for larger simulations (> 1500³ voxels) are reported in the paper below.
+
+---
 
 ## Compute the permeability tensor
-The $z-$ or $\mathbf{e}_3-$ direction is the direction of the main pressure gradient. Rotate the domain (e.g. with `numpy.transpose()`) and rotate all results respectively to get the entries in a column. 
-Example: 
 
-original domain: **k13** -> $k_{13}$, **k23** -> $k_{23}$, **k33** -> $k_{33}$
+The pressure gradient is always applied along $\mathbf{e}_3$ (z). To obtain off-diagonal tensor entries, rotate the domain and run the solver once per orientation. Each run fills one column of the permeability tensor:
 
-`np.transpose(domain, (2, 0, 1))`: **k13** -> $k_{32}$, **k23** -> $k_{12}$, **k33** -> $k_{22}$
+| `numpy.transpose` call | Output column |
+|---|---|
+| *(no transpose — original)* | $k_{13},\ k_{23},\ k_{33}$ |
+| `np.transpose(domain, (2, 0, 1))` | $k_{32},\ k_{12},\ k_{22}$ |
+| `np.transpose(domain, (1, 2, 0))` | $k_{21},\ k_{31},\ k_{11}$ |
 
-`np.transpose(domain, (1, 2, 0))`: **k13** -> $k_{21}$, **k23** -> $k_{31}$, **k33** -> $k_{11}$
+Remember to rotate the result vectors by the same permutation to map log-file entries back to physical tensor indices.
+
+---
 
 ## License
 
-The solver is licensed under the terms and conditions of the MIT License version 3 or - at your option - any later
-version. The License can be [found online](https://opensource.org/license/mit/) or in the LICENSE.md file
-provided in the topmost directory of source code tree.
+POREMAPS is released under the [MIT License](https://opensource.org/license/mit/). See `LICENSE.md` in the repository root for the full text.
+
+---
 
 ## How to cite
 
-The solver is research software and developed at a research institute. Please cite **specific releases** according to [**DaRUS**](https://doi.org/10.18419/darus-3676) version.
+Please cite **specific releases** via [DaRUS](https://doi.org/10.18419/darus-3676).
 
-If you are using poremaps in scientific publications and in the academic context, please cite our publications:
+If you use POREMAPS in a scientific publication, please also cite:
 
 ```bib
 @article{Krach2025a,
-    author={Krach, David and Ruf, Matthias and Steeb, Holger}, 
-    title={{POREMAPS}: A finite difference based Porous Media Anisotropic Permeability Solver for   Stokes flow}, 
-    DOI={10.69631/ipj.v2i1nr39}, 
-    journal={InterPore Journal}, 
-    pages={IPJ260225–7}, 
-    volume={2}, 
-    number={1}, 
-    month={Feb.}, 
-    year={2025}, 
-    place={De Bilt, The Netherlands}
+    author  = {Krach, David and Ruf, Matthias and Steeb, Holger},
+    title   = {{POREMAPS}: A finite difference based Porous Media Anisotropic Permeability Solver for Stokes flow},
+    DOI     = {10.69631/ipj.v2i1nr39},
+    journal = {InterPore Journal},
+    pages   = {IPJ260225--7},
+    volume  = {2},
+    number  = {1},
+    month   = {Feb.},
+    year    = {2025},
+    place   = {De Bilt, The Netherlands}
 }
 ```
 
 ```bib
 @data{Krach2024a,
-    author = {Krach, David and Ruf, Matthias and Steeb, Holger},
+    author    = {Krach, David and Ruf, Matthias and Steeb, Holger},
     publisher = {DaRUS},
-    title = {{POREMAPS 1.0.0: Code, Benchmarks, Applications}},
-    year = {2024},
-    version = {V1},
-    doi = {10.18419/darus-3676},
-    url = {https://doi.org/10.18419/darus-3676}
+    title     = {{POREMAPS 1.0.0: Code, Benchmarks, Applications}},
+    year      = {2024},
+    version   = {V1},
+    doi       = {10.18419/darus-3676},
+    url       = {https://doi.org/10.18419/darus-3676}
 }
 ```
 
-## Solver is used in following publications
+---
+
+## Solver is used in the following publications
 
 [![Identifier](https://img.shields.io/badge/Publication_ADWR_Krach_et.al._(2025)-blue)](https://doi.org/10.1016/j.advwatres.2024.104860)
 
 ```bib
 @article{Krach2025b,
-    title = {A novel geometry-informed drag term formulation for pseudo-3D Stokes simulations with varying apertures},
+    title   = {A novel geometry-informed drag term formulation for pseudo-3D Stokes simulations with varying apertures},
     journal = {Advances in Water Resources},
-    volume = {195},
-    year = {2025},
-    doi = {https://doi.org/10.1016/j.advwatres.2024.104860},
-    author = {David Krach and Felix Weinhardt and Mingfeng Wang and Martin Schneider and Holger Class and Holger Steeb},
+    volume  = {195},
+    year    = {2025},
+    doi     = {https://doi.org/10.1016/j.advwatres.2024.104860},
+    author  = {David Krach and Felix Weinhardt and Mingfeng Wang and Martin Schneider and Holger Class and Holger Steeb},
     keywords = {Porous media, Stokes flow, Biomineralization, Microfluidics, Image-based simulations, Computational efficiency versus accuracy}
 }
-
 ```
+
+---
 
 ## Developer
 
-- [David Krach](https://www.mib.uni-stuttgart.de/institute/team/Krach/) E-mail: [david.krach@mib.uni-stuttgart.de](mailto:david.krach@mib.uni-stuttgart.de)
-- [Matthias Ruf](https://www.mib.uni-stuttgart.de/institute/team/Ruf-00001/) E-mail: [matthias.ruf@mib.uni-stuttgart.de](mailto:matthias.ruf@mib.uni-stuttgart.de)
+- [David Krach](https://www.mib.uni-stuttgart.de/institute/team/Krach/) — [david.krach@mib.uni-stuttgart.de](mailto:david.krach@mib.uni-stuttgart.de)
+- [Matthias Ruf](https://www.mib.uni-stuttgart.de/institute/team/Ruf-00001/) — [matthias.ruf@mib.uni-stuttgart.de](mailto:matthias.ruf@mib.uni-stuttgart.de)
 
 ## Contact
-- [Software Support Institute of Applied Mechanics](mailto:software@mib.uni-stuttgart.de)
-- [Data Support Institute of Applied Mechanics](mailto:data@mib.uni-stuttgart.de)
+
+- [Software Support — Institute of Applied Mechanics](mailto:software@mib.uni-stuttgart.de)
+- [Data Support — Institute of Applied Mechanics](mailto:data@mib.uni-stuttgart.de)

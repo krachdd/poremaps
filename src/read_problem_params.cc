@@ -27,12 +27,12 @@ OTHER DEALINGS IN THE SOFTWARE.
  * Contact:    david.krach@mib.uni-stuttgart.de
  *
  * Purpose:    void read_problem_params:
- *             Read problem parameters. File is alwasy input_param.inp
+ *             Read problem parameters. File is always input_param.inp
  *             if not specified otherwise. 
  * 
  *             void read_parallel_params:
- *             Read parallel parameters, same functiontype, reads only 
- *             parameters needed for domain decompostion
+ *             Read parallel parameters, same function type, reads only
+ *             parameters needed for domain decomposition
  * Contents:   
  * 
  * Changelog:  Version: 1.0.0
@@ -97,7 +97,7 @@ void read_problem_params(   char* file_name,
         fprintf(stderr, "Setting EPS to a value smaller equal than zero.");
     }
     if (*it_write % *it_eval){
-        fprintf(stderr, "Set writing and evaluating freq to proper values (it_write mod it_eval =! 0).");
+        fprintf(stderr, "Set writing and evaluating freq to proper values (it_write mod it_eval != 0).");
     }
     if (*porosity > 1.0 || (*porosity < -0.0 && *porosity != -1.0)){
         fprintf(stderr, "Porosity has to be 0.0 < porosity <= 1.0 or -1.0 to be evaluated.");

@@ -144,7 +144,7 @@ int main (int argc, char** argv){
     // Define input file
     // If no command line argument is given the solver assumes the input file is called "input_param.inp"
     if (argc == 1){input_fn = "input_param.inp";}
-    else if (argc = 2){input_fn = (argv[1]);}
+    else if (argc == 2){input_fn = (argv[1]);}
 
     if (rank_glob == 0){
         if (argc == 1){printf("No input file specified. Using input_param.inp\n");}

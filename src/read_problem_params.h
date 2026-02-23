@@ -27,7 +27,7 @@ OTHER DEALINGS IN THE SOFTWARE.
  * Date:       2021/02
  * Contact:    david.krach@mib.uni-stuttgart.de
  *
- * Purpose:    Header file to read_problem_params.cc
+ * Purpose:    Header for read_problem_params.cc
  *
  * Contents:   
  * 

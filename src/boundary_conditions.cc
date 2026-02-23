@@ -51,8 +51,8 @@ void reapply_pressure_gradient(bool*** proc_geom,
                                int* cart_coords, 
                                int* dims)
 {
-    int i, j, k;
-    int zmax_procs = dims[2] - 1; // max number of process in z dir in cart communicator
+    int j, k;
+    int zmax_procs = dims[2] - 1; // index of last rank in the z direction
     int lim = 2;
     if (cart_coords[2] == 0){ // reset inlet pressure 
         for (j = lim; j < new_proc_size[1] - lim; j++){
