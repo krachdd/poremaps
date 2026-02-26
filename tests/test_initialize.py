@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 #
-# Copyright 2024 David Krach, Matthias Ruf
+# Copyright 2024-2026 David Krach, Matthias Ruf
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
