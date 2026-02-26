@@ -1,7 +1,7 @@
 /************************************************************************
 
 Parallel Finite Difference Solver for Stokes Equations in Porous Media
-Copyright 2024 David Krach, Matthias Ruf
+Copyright 2024-2026 David Krach, Matthias Ruf
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of 
 this software and associated documentation files (the “Software”), to deal in 
@@ -62,8 +62,6 @@ void get_2nd_derivation(int neighborhood_case,
                         double rrvel, 
                         double &d2vdx2) 
 {
-
-    double v1, v2, v3, v4; // velocity definition see sketch
 
     if (neighborhood_case == 1) {
         // d2vdx2 = -8.0 * v2;
@@ -177,7 +175,7 @@ void central_diff5( bool*** proc_geom,
                     get_2nd_derivation(case_y, vel_x[i][j-2][k], vel_x[i][j-1][k], vel_x[i][j][k], vel_x[i][j+1][k], vel_x[i][j+2][k], d2vxdy2);
                     get_2nd_derivation(case_y, vel_z[i][j-2][k], vel_z[i][j-1][k], vel_z[i][j][k], vel_z[i][j+1][k], vel_z[i][j+2][k], d2vzdy2);
 
-                    // perpendicular direction y
+                    // perpendicular direction z
                     get_2nd_derivation(case_z, vel_x[i-2][j][k], vel_x[i-1][j][k], vel_x[i][j][k], vel_x[i+1][j][k], vel_x[i+2][j][k], d2vxdz2);
                     get_2nd_derivation(case_z, vel_y[i-2][j][k], vel_y[i-1][j][k], vel_y[i][j][k], vel_y[i+1][j][k], vel_y[i+2][j][k], d2vydz2);
 
@@ -214,16 +212,11 @@ void central_diff5( bool*** proc_geom,
                         vel_y[i][j][k] = (1.0 - omega_sor) * vel_y[i][j][k] + omega_sor * (-dp_dy + vely_sum / Re) * dt;
                         vel_z[i][j][k] = (1.0 - omega_sor) * vel_z[i][j][k] + omega_sor * (-dp_dz + velz_sum / Re) * dt;
                     }
-                    // if solver is 2, 3 the pressure is computed with updated vel_*[][][]
+                    // Solvers 2 and 3 use already-updated velocities for the pressure step.
                     if (solver == 2 || solver == 3){
                         v_sum = (vel_z[i+1][j][k] - vel_z[i][j][k] + vel_y[i][j+1][k] - vel_y[i][j][k] + vel_x[i][j][k+1] - vel_x[i][j][k]);
                     }
-                    if (solver == 1 || solver == 2 || solver == 3){
-                        press[i][j][k] = press[i][j][k] - c2 * v_sum * dt;
-                    }
-                    // else if (solver == 3){
-                    //  press[i][j][k] = (1.0 - omega_sor) * press[i][j][k] - c2 * omega_sor * v_sum * dt;                      
-                    // }
+                    press[i][j][k] = press[i][j][k] - c2 * v_sum * dt;
                 }
             }
         }

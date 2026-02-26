@@ -1,28 +1,28 @@
 /************************************************************************
 
 Parallel Finite Difference Solver for Stokes Equations in Porous Media
-Copyright 2024 David Krach, Matthias Ruf
+Copyright 2024-2026 David Krach, Matthias Ruf
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the “Software”), to deal in 
-the Software without restriction, including without limitation the rights to use, 
-copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the 
-Software, and to permit persons to whom the Software is furnished to do so, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, 
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
- * Authors:    David Krach 
+ * Authors:    David Krach
  * Date:       2021/12
  * Contact:    david.krach@mib.uni-stuttgart.de
  *
@@ -31,20 +31,27 @@ OTHER DEALINGS IN THE SOFTWARE.
  *
  *             void communicate_halos:
  *             pressure and velocity
- *             all 3 directions, if no communication is 
+ *             all 3 directions, if no communication is
  *             needed due to BCs or small number of ranks
- *             MPI_PROC_NULL means that there is no neighbour 
+ *             MPI_PROC_NULL means that there is no neighbour
  *             (defined as -2 in MPI4)
- * Contents:   
- * 
+ * Contents:
+ *
  * Changelog:  Version: 1.0.0
 
               krach 2021/01/14 added different cases for bc
-                                added pindicator since pressure-bc have 
-                                to be treated different than velocity bc 
+                                added pindicator since pressure-bc have
+                                to be treated different than velocity bc
                                 in case of no slip conditions
                                 if pindicator == 0 --> var is pressure
                                 if pindicator == 1 --> var is velocity
+
+              krach 2026: replaced element-by-element MPI_Sendrecv loops
+                          with pack/send/unpack pattern.
+                          Each direction now requires 2 MPI_Sendrecv calls
+                          (6 total) instead of O(ny*nz) calls.
+                          Also fixed MPI derived datatype leak in
+                          communicate_geom_halos.
  ***********************************************************************/
 
 
@@ -57,143 +64,255 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 // **********************************************************************
 
-void communicate_geom_halos(bool*** var, 
-                            int* new_proc_size, 
-                            int* neighbors, 
-                            MPI_Datatype etype, 
+void communicate_geom_halos(bool*** var,
+                            int* new_proc_size,
+                            int* neighbors,
+                            MPI_Datatype etype,
                             MPI_Comm comm_cart)
 {
-    int         i, j, k;
-    MPI_Status  srstatus[12];           // MPI_Status object for all communication dirs
-    MPI_Datatype zsend, ysend, xsend;   // derived datatypes for communication
+    int i, j, k;
+    MPI_Status status;
 
-    int zcount = new_proc_size[0];
-    int ycount = new_proc_size[0];
-    int xcount = 1;
+    int nx = new_proc_size[0];
+    int ny = new_proc_size[1];
+    int nz = new_proc_size[2];
 
-    MPI_Type_contiguous(zcount, etype, &zsend);
-    MPI_Type_commit(&zsend);
-    MPI_Type_contiguous(ycount, etype, &ysend);
-    MPI_Type_commit(&ysend);
-    MPI_Type_contiguous(xcount, etype, &xsend);
-    MPI_Type_commit(&xsend);
+    // --- X direction ---
+    // Send x=2,3 to left neighbor (neighbors[0]); recv from right (neighbors[1]) into x=nx-2,nx-1
+    // Send x=nx-4,nx-3 to right neighbor (neighbors[1]); recv from left (neighbors[0]) into x=0,1
+    {
+        int sz = nz * ny * 2;
+        bool *sl = new bool[sz], *sr = new bool[sz];
+        bool *rl = new bool[sz], *rr = new bool[sz];
 
-    // comunicate in x direction <--> size[0], neighbor[0]: -1 in xdir, neighbor[1]: +1 in xdir
-    // communication bool by bool is improveable
-    for (i = 0; i < new_proc_size[2]; i++){
-        for (j = 0; j < new_proc_size[1]; j++){
-            MPI_Sendrecv(&var[i][j][2],                  1, xsend, neighbors[0], 0, 
-                         &var[i][j][new_proc_size[0]-2], 1, xsend, neighbors[1], 0, comm_cart, &srstatus[0]);
-            MPI_Sendrecv(&var[i][j][3],                  1, xsend, neighbors[0], 1, 
-                         &var[i][j][new_proc_size[0]-1], 1, xsend, neighbors[1], 1, comm_cart, &srstatus[1]);
-            MPI_Sendrecv(&var[i][j][new_proc_size[0]-4], 1, xsend, neighbors[1], 2, 
-                         &var[i][j][0],                  1, xsend, neighbors[0], 2, comm_cart, &srstatus[2]);
-            MPI_Sendrecv(&var[i][j][new_proc_size[0]-3], 1, xsend, neighbors[1], 3, 
-                         &var[i][j][1],                  1, xsend, neighbors[0], 3, comm_cart, &srstatus[3]);
-        }
+        for (i = 0; i < nz; i++)
+            for (j = 0; j < ny; j++) {
+                int idx = 2*(i*ny + j);
+                sl[idx]   = var[i][j][2];     sl[idx+1] = var[i][j][3];
+                sr[idx]   = var[i][j][nx-4];  sr[idx+1] = var[i][j][nx-3];
+            }
+
+        MPI_Sendrecv(sl, sz, etype, neighbors[0], 0,
+                     rr, sz, etype, neighbors[1], 0, comm_cart, &status);
+        MPI_Sendrecv(sr, sz, etype, neighbors[1], 1,
+                     rl, sz, etype, neighbors[0], 1, comm_cart, &status);
+
+        if (neighbors[1] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (j = 0; j < ny; j++) {
+                    int idx = 2*(i*ny + j);
+                    var[i][j][nx-2] = rr[idx]; var[i][j][nx-1] = rr[idx+1];
+                }
+
+        if (neighbors[0] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (j = 0; j < ny; j++) {
+                    int idx = 2*(i*ny + j);
+                    var[i][j][0] = rl[idx]; var[i][j][1] = rl[idx+1];
+                }
+
+        delete[] sl; delete[] sr; delete[] rl; delete[] rr;
     }
 
-    // communicate in y direction <--> size[1], neighbor[2]: -1 in ydir, neighbor[3]: +1 in ydir
-    for (i = 0; i < new_proc_size[2]; i++){
-        // synchronous blocking sendrecvs
-        MPI_Sendrecv(var[i][2],                  1, ysend, neighbors[2], 4,
-                     var[i][new_proc_size[1]-2], 1, ysend, neighbors[3], 4, comm_cart, &srstatus[4]);
-        MPI_Sendrecv(var[i][3],                  1, ysend, neighbors[2], 5,
-                     var[i][new_proc_size[1]-1], 1, ysend, neighbors[3], 5, comm_cart, &srstatus[5]);
-        MPI_Sendrecv(var[i][new_proc_size[1]-4], 1, ysend, neighbors[3], 6,
-                     var[i][0],                  1, ysend, neighbors[2], 6, comm_cart, &srstatus[6]);
-        MPI_Sendrecv(var[i][new_proc_size[1]-3], 1, ysend, neighbors[3], 7,
-                     var[i][1],                  1, ysend, neighbors[2], 7, comm_cart, &srstatus[7]);
+    // --- Y direction ---
+    // Send y=2,3 to bottom neighbor (neighbors[2]); recv from top (neighbors[3]) into y=ny-2,ny-1
+    // Send y=ny-4,ny-3 to top neighbor (neighbors[3]); recv from bottom (neighbors[2]) into y=0,1
+    {
+        int sz = nz * nx * 2;
+        bool *sl = new bool[sz], *sr = new bool[sz];
+        bool *rl = new bool[sz], *rr = new bool[sz];
+
+        for (i = 0; i < nz; i++)
+            for (k = 0; k < nx; k++) {
+                int idx = 2*(i*nx + k);
+                sl[idx]   = var[i][2][k];     sl[idx+1] = var[i][3][k];
+                sr[idx]   = var[i][ny-4][k];  sr[idx+1] = var[i][ny-3][k];
+            }
+
+        MPI_Sendrecv(sl, sz, etype, neighbors[2], 2,
+                     rr, sz, etype, neighbors[3], 2, comm_cart, &status);
+        MPI_Sendrecv(sr, sz, etype, neighbors[3], 3,
+                     rl, sz, etype, neighbors[2], 3, comm_cart, &status);
+
+        if (neighbors[3] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(i*nx + k);
+                    var[i][ny-2][k] = rr[idx]; var[i][ny-1][k] = rr[idx+1];
+                }
+
+        if (neighbors[2] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(i*nx + k);
+                    var[i][0][k] = rl[idx]; var[i][1][k] = rl[idx+1];
+                }
+
+        delete[] sl; delete[] sr; delete[] rl; delete[] rr;
     }
 
-    // communicate in z direction <--> size[2], neighbor[4]: -1 in zdir, neighbor[5]: +1 in zdir
-    for (i = 0; i < new_proc_size[1]; i++){
-        // synchronous blocking sendrecvs
-        MPI_Sendrecv(var[2][i],                  1, zsend, neighbors[4], 8,
-                     var[new_proc_size[2]-2][i], 1, zsend, neighbors[5], 8,  comm_cart, &srstatus[8]);
-        MPI_Sendrecv(var[3][i],                  1, zsend, neighbors[4], 9, 
-                     var[new_proc_size[2]-1][i], 1, zsend, neighbors[5], 9,  comm_cart, &srstatus[9]);
-        MPI_Sendrecv(var[new_proc_size[2]-4][i], 1, zsend, neighbors[5], 10,
-                     var[0][i],                  1, zsend, neighbors[4], 10, comm_cart, &srstatus[10]);
-        MPI_Sendrecv(var[new_proc_size[2]-3][i], 1, zsend, neighbors[5], 11,
-                     var[1][i],                  1, zsend, neighbors[4], 11, comm_cart, &srstatus[11]);
-    }
+    // --- Z direction ---
+    // Send z=2,3 to front neighbor (neighbors[4]); recv from back (neighbors[5]) into z=nz-2,nz-1
+    // Send z=nz-4,nz-3 to back neighbor (neighbors[5]); recv from front (neighbors[4]) into z=0,1
+    {
+        int sz = ny * nx * 2;
+        bool *sl = new bool[sz], *sr = new bool[sz];
+        bool *rl = new bool[sz], *rr = new bool[sz];
 
+        for (j = 0; j < ny; j++)
+            for (k = 0; k < nx; k++) {
+                int idx = 2*(j*nx + k);
+                sl[idx]   = var[2][j][k];     sl[idx+1] = var[3][j][k];
+                sr[idx]   = var[nz-4][j][k];  sr[idx+1] = var[nz-3][j][k];
+            }
+
+        MPI_Sendrecv(sl, sz, etype, neighbors[4], 4,
+                     rr, sz, etype, neighbors[5], 4, comm_cart, &status);
+        MPI_Sendrecv(sr, sz, etype, neighbors[5], 5,
+                     rl, sz, etype, neighbors[4], 5, comm_cart, &status);
+
+        if (neighbors[5] != MPI_PROC_NULL)
+            for (j = 0; j < ny; j++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(j*nx + k);
+                    var[nz-2][j][k] = rr[idx]; var[nz-1][j][k] = rr[idx+1];
+                }
+
+        if (neighbors[4] != MPI_PROC_NULL)
+            for (j = 0; j < ny; j++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(j*nx + k);
+                    var[0][j][k] = rl[idx]; var[1][j][k] = rl[idx+1];
+                }
+
+        delete[] sl; delete[] sr; delete[] rl; delete[] rr;
+    }
 }
 
 
-void communicate_halos( double*** var, 
-                        int* new_proc_size, 
-                        int* neighbors, 
-                        MPI_Datatype etype, 
-                        MPI_Comm comm_cart, 
-                        unsigned int* bc, 
+void communicate_halos( double*** var,
+                        int* new_proc_size,
+                        int* neighbors,
+                        MPI_Datatype etype,
+                        MPI_Comm comm_cart,
+                        unsigned int* bc,
                         int pindicator)
 {
-    int         i, j, k;
-    MPI_Status  srstatus[12];           // MPI_Status object for all communication dirs
-    MPI_Datatype zsend, ysend, xsend;   // derived datatypes for communication
+    int i, j, k;
+    MPI_Status status;
 
-    int zcount = new_proc_size[0];
-    int ycount = new_proc_size[0];
-    int xcount = 1;
-    // int zmax_procs = dims[2] - 1; // max number of process in z dir in cart communicator
+    int nx = new_proc_size[0];
+    int ny = new_proc_size[1];
+    int nz = new_proc_size[2];
 
-    // Definition of Datatypes to send/recv
-    MPI_Type_contiguous(zcount, etype, &zsend);
-    MPI_Type_commit(&zsend);
-    MPI_Type_contiguous(ycount, etype, &ysend);
-    MPI_Type_commit(&ysend);
-    MPI_Type_contiguous(xcount, etype, &xsend);
-    MPI_Type_commit(&xsend);
+    // --- X direction ---
+    // Send x=2,3 to left neighbor (neighbors[0]); recv from right (neighbors[1]) into x=nx-2,nx-1
+    // Send x=nx-4,nx-3 to right neighbor (neighbors[1]); recv from left (neighbors[0]) into x=0,1
+    {
+        int sz = nz * ny * 2;
+        double *sl = new double[sz], *sr = new double[sz];
+        double *rl = new double[sz], *rr = new double[sz];
 
-    // comunicate in x direction <--> size[0], neighbor[0]: -1 in xdir, neighbor[1]: +1 in xdir
-    // communication bool by bool is improveable
-    for (i = 0; i < new_proc_size[2]; i++){
-        for (j = 0; j < new_proc_size[1]; j++){
-            MPI_Sendrecv(&var[i][j][2],                  1, xsend, neighbors[0], 0, 
-                         &var[i][j][new_proc_size[0]-2], 1, xsend, neighbors[1], 0, comm_cart, &srstatus[0]);
-            MPI_Sendrecv(&var[i][j][3],                  1, xsend, neighbors[0], 1, 
-                         &var[i][j][new_proc_size[0]-1], 1, xsend, neighbors[1], 1, comm_cart, &srstatus[1]);
-            MPI_Sendrecv(&var[i][j][new_proc_size[0]-4], 1, xsend, neighbors[1], 2, 
-                         &var[i][j][0],                  1, xsend, neighbors[0], 2, comm_cart, &srstatus[2]);
-            MPI_Sendrecv(&var[i][j][new_proc_size[0]-3], 1, xsend, neighbors[1], 3, 
-                         &var[i][j][1],                  1, xsend, neighbors[0], 3, comm_cart, &srstatus[3]);
-        }
+        for (i = 0; i < nz; i++)
+            for (j = 0; j < ny; j++) {
+                int idx = 2*(i*ny + j);
+                sl[idx]   = var[i][j][2];     sl[idx+1] = var[i][j][3];
+                sr[idx]   = var[i][j][nx-4];  sr[idx+1] = var[i][j][nx-3];
+            }
+
+        MPI_Sendrecv(sl, sz, etype, neighbors[0], 0,
+                     rr, sz, etype, neighbors[1], 0, comm_cart, &status);
+        MPI_Sendrecv(sr, sz, etype, neighbors[1], 1,
+                     rl, sz, etype, neighbors[0], 1, comm_cart, &status);
+
+        if (neighbors[1] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (j = 0; j < ny; j++) {
+                    int idx = 2*(i*ny + j);
+                    var[i][j][nx-2] = rr[idx]; var[i][j][nx-1] = rr[idx+1];
+                }
+
+        if (neighbors[0] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (j = 0; j < ny; j++) {
+                    int idx = 2*(i*ny + j);
+                    var[i][j][0] = rl[idx]; var[i][j][1] = rl[idx+1];
+                }
+
+        delete[] sl; delete[] sr; delete[] rl; delete[] rr;
     }
 
-    // communicate in y direction <--> size[1], neighbor[2]: -1 in ydir, neighbor[3]: +1 in ydir
-    for (i = 0; i < new_proc_size[2]; i++){
-        // synchronous blocking sendrecvs
-        MPI_Sendrecv(var[i][2],                  1, ysend, neighbors[2], 4,
-                     var[i][new_proc_size[1]-2], 1, ysend, neighbors[3], 4, comm_cart, &srstatus[4]);
-        MPI_Sendrecv(var[i][3],                  1, ysend, neighbors[2], 5,
-                     var[i][new_proc_size[1]-1], 1, ysend, neighbors[3], 5, comm_cart, &srstatus[5]);
-        MPI_Sendrecv(var[i][new_proc_size[1]-4], 1, ysend, neighbors[3], 6,
-                     var[i][0],                  1, ysend, neighbors[2], 6, comm_cart, &srstatus[6]);
-        MPI_Sendrecv(var[i][new_proc_size[1]-3], 1, ysend, neighbors[3], 7,
-                     var[i][1],                  1, ysend, neighbors[2], 7, comm_cart, &srstatus[7]);
+    // --- Y direction ---
+    // Send y=2,3 to bottom neighbor (neighbors[2]); recv from top (neighbors[3]) into y=ny-2,ny-1
+    // Send y=ny-4,ny-3 to top neighbor (neighbors[3]); recv from bottom (neighbors[2]) into y=0,1
+    {
+        int sz = nz * nx * 2;
+        double *sl = new double[sz], *sr = new double[sz];
+        double *rl = new double[sz], *rr = new double[sz];
+
+        for (i = 0; i < nz; i++)
+            for (k = 0; k < nx; k++) {
+                int idx = 2*(i*nx + k);
+                sl[idx]   = var[i][2][k];     sl[idx+1] = var[i][3][k];
+                sr[idx]   = var[i][ny-4][k];  sr[idx+1] = var[i][ny-3][k];
+            }
+
+        MPI_Sendrecv(sl, sz, etype, neighbors[2], 2,
+                     rr, sz, etype, neighbors[3], 2, comm_cart, &status);
+        MPI_Sendrecv(sr, sz, etype, neighbors[3], 3,
+                     rl, sz, etype, neighbors[2], 3, comm_cart, &status);
+
+        if (neighbors[3] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(i*nx + k);
+                    var[i][ny-2][k] = rr[idx]; var[i][ny-1][k] = rr[idx+1];
+                }
+
+        if (neighbors[2] != MPI_PROC_NULL)
+            for (i = 0; i < nz; i++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(i*nx + k);
+                    var[i][0][k] = rl[idx]; var[i][1][k] = rl[idx+1];
+                }
+
+        delete[] sl; delete[] sr; delete[] rl; delete[] rr;
     }
 
-    // communicate in z direction <--> size[2], neighbor[4]: -1 in zdir, neighbor[5]: +1 in zdir
-    for (i = 0; i < new_proc_size[1]; i++){
+    // --- Z direction ---
+    // Send z=2,3 to front neighbor (neighbors[4]); recv from back (neighbors[5]) into z=nz-2,nz-1
+    // Send z=nz-4,nz-3 to back neighbor (neighbors[5]); recv from front (neighbors[4]) into z=0,1
+    {
+        int sz = ny * nx * 2;
+        double *sl = new double[sz], *sr = new double[sz];
+        double *rl = new double[sz], *rr = new double[sz];
 
-        // synchronous blocking sendrecvs
-        MPI_Sendrecv(var[2][i],                  1, zsend, neighbors[4], 8,
-                     var[new_proc_size[2]-2][i], 1, zsend, neighbors[5], 8,  comm_cart, &srstatus[8]);
-        MPI_Sendrecv(var[3][i],                  1, zsend, neighbors[4], 9, 
-                     var[new_proc_size[2]-1][i], 1, zsend, neighbors[5], 9,  comm_cart, &srstatus[9]);
-        MPI_Sendrecv(var[new_proc_size[2]-4][i], 1, zsend, neighbors[5], 10,
-                     var[0][i],                  1, zsend, neighbors[4], 10, comm_cart, &srstatus[10]);
-        MPI_Sendrecv(var[new_proc_size[2]-3][i], 1, zsend, neighbors[5], 11,
-                     var[1][i],                  1, zsend, neighbors[4], 11, comm_cart, &srstatus[11]);
-        
+        for (j = 0; j < ny; j++)
+            for (k = 0; k < nx; k++) {
+                int idx = 2*(j*nx + k);
+                sl[idx]   = var[2][j][k];     sl[idx+1] = var[3][j][k];
+                sr[idx]   = var[nz-4][j][k];  sr[idx+1] = var[nz-3][j][k];
+            }
+
+        MPI_Sendrecv(sl, sz, etype, neighbors[4], 4,
+                     rr, sz, etype, neighbors[5], 4, comm_cart, &status);
+        MPI_Sendrecv(sr, sz, etype, neighbors[5], 5,
+                     rl, sz, etype, neighbors[4], 5, comm_cart, &status);
+
+        if (neighbors[5] != MPI_PROC_NULL)
+            for (j = 0; j < ny; j++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(j*nx + k);
+                    var[nz-2][j][k] = rr[idx]; var[nz-1][j][k] = rr[idx+1];
+                }
+
+        if (neighbors[4] != MPI_PROC_NULL)
+            for (j = 0; j < ny; j++)
+                for (k = 0; k < nx; k++) {
+                    int idx = 2*(j*nx + k);
+                    var[0][j][k] = rl[idx]; var[1][j][k] = rl[idx+1];
+                }
+
+        delete[] sl; delete[] sr; delete[] rl; delete[] rr;
     }
-
-    // Free the datatypes 
-    MPI_Type_free(&zsend);
-    MPI_Type_free(&ysend);
-    MPI_Type_free(&xsend);
-
 }
-
