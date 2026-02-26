@@ -1,7 +1,7 @@
 /************************************************************************
 
 Parallel Finite Difference Solver for Stokes Equations in Porous Media
-Copyright 2024 David Krach, Matthias Ruf
+Copyright 2024-2026 David Krach, Matthias Ruf
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of 
 this software and associated documentation files (the “Software”), to deal in 
@@ -176,7 +176,7 @@ void eval_geometry( bool*** proc_geom,
                     int*** voxel_neighborhood)
 {
     // See Bentz et al 2007.
-    int i, j, k, l, direction;
+    int i, j, k, direction;
     int i_, j_, k_;
     int shift_factor = 0;
 
@@ -354,10 +354,10 @@ double get_porosity(    bool*** proc_geom,
         }
     }
 
-    MPI_Allreduce(MPI_IN_PLACE, &fluid_count, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-    MPI_Allreduce(MPI_IN_PLACE, &vox_count  , 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-
-    MPI_Barrier(comm_cart);
+    // Batch both SUM reductions into one call.
+    double gbuf[2] = {fluid_count, vox_count};
+    MPI_Allreduce(MPI_IN_PLACE, gbuf, 2, MPI_DOUBLE, MPI_SUM, comm_cart);
+    fluid_count = gbuf[0]; vox_count = gbuf[1];
 
     g_porosity = fluid_count/vox_count;
     return g_porosity;

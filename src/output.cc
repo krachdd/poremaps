@@ -1,7 +1,7 @@
 /************************************************************************
 
 Parallel Finite Difference Solver for Stokes Equations in Porous Media
-Copyright 2024 David Krach, Matthias Ruf
+Copyright 2024-2026 David Krach, Matthias Ruf
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of 
 this software and associated documentation files (the “Software”), to deal in 
@@ -91,18 +91,19 @@ void write_output_raw(  double*** var,
     }
     
     MPI_File_set_view(fh, write_offset, etype, filetype, "native", MPI_INFO_NULL);
-    MPI_File_write_at_all(  fh, 
-                            write_offset, 
-                            temp_var, 
-                            proc_size[2]*proc_size[1]*proc_size[0], 
-                            etype, 
+    MPI_File_write_at_all(  fh,
+                            write_offset,
+                            temp_var,
+                            proc_size[2]*proc_size[1]*proc_size[0],
+                            etype,
                             &write_status);
 
     delete [] temp_var;
-
+    MPI_File_close(&fh);
+    MPI_Type_free(&filetype);
 }
 
-void write_output_raw(  int*** var, 
+void write_output_raw(  int*** var,
                         char* file_name, 
                         int* size,
                         int* proc_size,
@@ -139,17 +140,17 @@ void write_output_raw(  int*** var,
         }
     }
     MPI_File_set_view(fh, write_offset, etype, filetype, "native", MPI_INFO_NULL);
-    MPI_File_write_at_all(  fh, 
-                            write_offset, 
-                            temp_var, 
-                            proc_size[2]*proc_size[1]*proc_size[0], 
-                            etype, 
+    MPI_File_write_at_all(  fh,
+                            write_offset,
+                            temp_var,
+                            proc_size[2]*proc_size[1]*proc_size[0],
+                            etype,
                             &write_status);
 
     delete [] temp_var;
-
+    MPI_File_close(&fh);
+    MPI_Type_free(&filetype);
 }
-
 
 
 void write_domain_decomposition(int*** domain_decomposition,

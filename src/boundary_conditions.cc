@@ -1,7 +1,7 @@
 /************************************************************************
 
 Parallel Finite Difference Solver for Stokes Equations in Porous Media
-Copyright 2024 David Krach, Matthias Ruf
+Copyright 2024-2026 David Krach, Matthias Ruf
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of 
 this software and associated documentation files (the “Software”), to deal in 
@@ -51,8 +51,8 @@ void reapply_pressure_gradient(bool*** proc_geom,
                                int* cart_coords, 
                                int* dims)
 {
-    int i, j, k;
-    int zmax_procs = dims[2] - 1; // max number of process in z dir in cart communicator
+    int j, k;
+    int zmax_procs = dims[2] - 1; // index of last rank in the z direction
     int lim = 2;
     if (cart_coords[2] == 0){ // reset inlet pressure 
         for (j = lim; j < new_proc_size[1] - lim; j++){

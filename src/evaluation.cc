@@ -1,28 +1,28 @@
 /************************************************************************
 
 Parallel Finite Difference Solver for Stokes Equations in Porous Media
-Copyright 2024 David Krach, Matthias Ruf
+Copyright 2024-2026 David Krach, Matthias Ruf
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the “Software”), to deal in 
-the Software without restriction, including without limitation the rights to use, 
-copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the 
-Software, and to permit persons to whom the Software is furnished to do so, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, 
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
- * Authors:    David Krach 
+ * Authors:    David Krach
  * Date:       2021/12
  * Contact:    david.krach@mib.uni-stuttgart.de
  *
@@ -31,9 +31,15 @@ OTHER DEALINGS IN THE SOFTWARE.
  *
  *             double compute_convergence:
  *             compute convergence criterion
- * Contents:   
- * 
+ * Contents:
+ *
  * Changelog:  Version: 1.0.0
+ *
+ *             krach 2025: removed redundant MPI_Barrier calls (MPI_Allreduce
+ *             is itself a collective and does not need surrounding barriers).
+ *             Batched multiple scalar MPI_Allreduce calls into single calls
+ *             over arrays, reducing collective operations in
+ *             compute_permeability from 13 to 5.
  ***********************************************************************/
 
 
@@ -45,23 +51,23 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include "constants.h"
 // **********************************************************************
 
-void compute_permeability(  bool*** proc_geom, 
-                            int* size, 
-                            int* new_proc_size, 
-                            double*** vel_x, 
-                            double*** vel_y, 
+void compute_permeability(  bool*** proc_geom,
+                            int* size,
+                            int* new_proc_size,
+                            double*** vel_x,
+                            double*** vel_y,
                             double*** vel_z,
-                            double*** press, 
+                            double*** press,
                             double* k13,
                             double* k23,
                             double* k33,
                             double* wk13,
                             double* wk23,
                             double* wk33,
-                            double* wmax_velz, 
-                            double* wmean_velz, 
+                            double* wmax_velz,
+                            double* wmean_velz,
                             MPI_Comm comm_cart,
-                            int* starts, 
+                            int* starts,
                             int* dom_interest,
                             double voxelsize,
                             double porosity)
@@ -69,10 +75,10 @@ void compute_permeability(  bool*** proc_geom,
     int i, j, k;
     int gi, gj, gk;                                     // local coordinates
     int lim = 2;                                        // to consider halos
-    double velx_sum = 0.0, vely_sum = 0.0, velz_sum = 0.0;  
+    double velx_sum = 0.0, vely_sum = 0.0, velz_sum = 0.0;
     double wvelx_sum = 0.0, wvely_sum = 0.0, wvelz_sum = 0.0;
     double wvelz_max = 0.0;                              // store velocities
-    double p0sum = 0.0, pendsum = 0.0;                   // stores pressuers
+    double p0sum = 0.0, pendsum = 0.0;                   // stores pressures
     double pgrad_dofi = 1.0;                             // pressure gradient of subdomain
     int p0flcount = 0, pendflcount = 0;                  // voxel counter
     int flcount = 0, wflcount = 0;                       // voxel counter
@@ -94,15 +100,15 @@ void compute_permeability(  bool*** proc_geom,
             }
         }
     }
-    // if true --> compute properties of subdomain 
-    if (dom_interest[0] == 0 && dom_interest[1] == 0 && 
-        dom_interest[2] == 0 && dom_interest[3] == 0 && 
+    // if true --> compute properties of subdomain
+    if (dom_interest[0] == 0 && dom_interest[1] == 0 &&
+        dom_interest[2] == 0 && dom_interest[3] == 0 &&
         dom_interest[4] == 0 && dom_interest[5] == 0){
         flcount = 0;
         eval_dofi = false;
     }
     else {
-        // Check wether the subdomain of the rank is within the  
+        // Check wether the subdomain of the rank is within the
         // the domain domain of interest
         for ( i = lim; i < new_proc_size[2] - lim; i++ ){
             for ( j = lim; j < new_proc_size[1] - lim; j++ ){
@@ -113,7 +119,7 @@ void compute_permeability(  bool*** proc_geom,
                     gk = starts[0] + k - lim;
                     if ( gk < dom_interest[0] || gk > dom_interest[1] ||
                          gj < dom_interest[2] || gj > dom_interest[3] ||
-                         gi < dom_interest[4] || gk > dom_interest[5]   ){
+                         gi < dom_interest[4] || gi > dom_interest[5]   ){
                         continue;
                     }
                     else {
@@ -143,7 +149,7 @@ void compute_permeability(  bool*** proc_geom,
     }
 
     // Make sure that there is no random value in storage and set all
-    // relevant vels to zero if there is no fluid voxel present on the 
+    // relevant vels to zero if there is no fluid voxel present on the
     // subdomain of the rank
     if ( wflcount == 0 ){
         wvelx_sum = 0.0;
@@ -156,38 +162,31 @@ void compute_permeability(  bool*** proc_geom,
         vely_sum = 0.0;
         velz_sum = 0.0;
     }
+    if ( p0flcount == 0 ){ p0sum   = 0.0; }
+    if ( pendflcount == 0 ){ pendsum = 0.0; }
 
-    if ( p0flcount == 0 ){
-        p0sum  = 0.0;
-    }
-    if ( pendflcount == 0 ){
-        pendsum = 0.0;
-    }
-
-    // Communicate domain of interest properties if necessary 
-    MPI_Barrier(comm_cart);
-
-    // int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
+    // Communicate domain of interest properties if necessary.
+    // MPI_Allreduce is a collective that synchronises all ranks implicitly;
+    // no surrounding MPI_Barrier calls are needed.
     if ( eval_dofi == true ){
-        MPI_Allreduce(MPI_IN_PLACE, &velx_sum,    1, MPI_DOUBLE, MPI_SUM, comm_cart);
-        MPI_Allreduce(MPI_IN_PLACE, &vely_sum,    1, MPI_DOUBLE, MPI_SUM, comm_cart);
-        MPI_Allreduce(MPI_IN_PLACE, &velz_sum,    1, MPI_DOUBLE, MPI_SUM, comm_cart);
-        MPI_Allreduce(MPI_IN_PLACE, &p0sum,       1, MPI_DOUBLE, MPI_SUM, comm_cart);
-        MPI_Allreduce(MPI_IN_PLACE, &pendsum,     1, MPI_DOUBLE, MPI_SUM, comm_cart);
-        MPI_Allreduce(MPI_IN_PLACE, &flcount,     1, MPI_INT,    MPI_SUM, comm_cart);
-        MPI_Allreduce(MPI_IN_PLACE, &p0flcount,   1, MPI_INT,    MPI_SUM, comm_cart);
-        MPI_Allreduce(MPI_IN_PLACE, &pendflcount, 1, MPI_INT,    MPI_SUM, comm_cart);
+        // Batch all SUM-doubles into one call and SUM-ints into one call.
+        double dsum_buf[5] = {velx_sum, vely_sum, velz_sum, p0sum, pendsum};
+        int    isum_buf[3] = {flcount, p0flcount, pendflcount};
+        MPI_Allreduce(MPI_IN_PLACE, dsum_buf, 5, MPI_DOUBLE, MPI_SUM, comm_cart);
+        MPI_Allreduce(MPI_IN_PLACE, isum_buf, 3, MPI_INT,    MPI_SUM, comm_cart);
+        velx_sum    = dsum_buf[0]; vely_sum    = dsum_buf[1];
+        velz_sum    = dsum_buf[2]; p0sum       = dsum_buf[3];
+        pendsum     = dsum_buf[4];
+        flcount     = isum_buf[0]; p0flcount   = isum_buf[1];
+        pendflcount = isum_buf[2];
     }
 
-    MPI_Barrier(comm_cart);
-
-    MPI_Allreduce(MPI_IN_PLACE, &wvelx_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-    MPI_Allreduce(MPI_IN_PLACE, &wvely_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-    MPI_Allreduce(MPI_IN_PLACE, &wvelz_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
+    // Whole-domain reductions: batch the three SUM-doubles, keep MAX separate.
+    double wdsum_buf[3] = {wvelx_sum, wvely_sum, wvelz_sum};
+    MPI_Allreduce(MPI_IN_PLACE, wdsum_buf, 3, MPI_DOUBLE, MPI_SUM, comm_cart);
     MPI_Allreduce(MPI_IN_PLACE, &wflcount,  1, MPI_INT,    MPI_SUM, comm_cart);
     MPI_Allreduce(MPI_IN_PLACE, &wvelz_max, 1, MPI_DOUBLE, MPI_MAX, comm_cart);
-
-    MPI_Barrier(comm_cart);
+    wvelx_sum = wdsum_buf[0]; wvely_sum = wdsum_buf[1]; wvelz_sum = wdsum_buf[2];
 
     // Compute permeabilities of domain of interest in real dimensions
     if ( eval_dofi == true ){
@@ -206,21 +205,18 @@ void compute_permeability(  bool*** proc_geom,
     *wk13 = (wvelx_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
     *wk23 = (wvely_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
     *wk33 = (wvelz_sum/wflcount) * (1.0/Re) * porosity * pow(voxelsize,2);
-    
+
     *wmean_velz = wvelz_sum/wflcount * voxelsize;
-    *wmax_velz = wvelz_max * voxelsize;
-
-    MPI_Barrier(comm_cart);
-
+    *wmax_velz  = wvelz_max * voxelsize;
 }
 
 
 
 
-double compute_convergence( bool*** proc_geom, 
-                            int* size, 
-                            int* new_proc_size, 
-                            double*** vel_z, 
+double compute_convergence( bool*** proc_geom,
+                            int* size,
+                            int* new_proc_size,
+                            double*** vel_z,
                             double* permeability,
                             MPI_Comm comm_cart)
 {
@@ -244,30 +240,23 @@ double compute_convergence( bool*** proc_geom,
         }
     }
 
-
-
     // Make sure that there is no random value in storage and set all
-    // relevant vels to zero if there is no fluid voxel present on the 
+    // relevant vels to zero if there is no fluid voxel present on the
     // subdomain of the rank
-    if (flcount == 0){
-        velz_sum = 0.0;
-    }
+    if (flcount == 0){ velz_sum = 0.0; }
 
-    MPI_Barrier(comm_cart);
-
-    // int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
-    MPI_Allreduce(MPI_IN_PLACE, &velz_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-    MPI_Allreduce(MPI_IN_PLACE, &flcount,  1, MPI_INT,    MPI_SUM, comm_cart);
-
-    MPI_Barrier(comm_cart);
+    // Batch the two SUM reductions into one call each (double + int).
+    // MPI_Allreduce is itself a synchronising collective; no barrier needed.
+    double cbuf[2] = {velz_sum, (double)flcount};
+    MPI_Allreduce(MPI_IN_PLACE, cbuf, 2, MPI_DOUBLE, MPI_SUM, comm_cart);
+    velz_sum = cbuf[0];
+    flcount  = (int)cbuf[1];
 
     mean_velz = velz_sum/flcount;
     current_permeability = mean_velz/Re; // in vx^2;
     // Compute convergence criterion
     conv = fabs(current_permeability - *permeability)/current_permeability;
     *permeability = current_permeability;
-    MPI_Barrier(comm_cart);
 
     return conv;
-
 }

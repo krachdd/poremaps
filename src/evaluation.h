@@ -1,7 +1,7 @@
 /************************************************************************
 
 Parallel Finite Difference Solver for Stokes Equations in Porous Media
-Copyright 2024 David Krach, Matthias Ruf
+Copyright 2024-2026 David Krach, Matthias Ruf
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of 
 this software and associated documentation files (the “Software”), to deal in 
@@ -26,7 +26,7 @@ OTHER DEALINGS IN THE SOFTWARE.
  * Date:       2021/12
  * Contact:    david.krach@mib.uni-stuttgart.de
  *
- * Purpose:    Header for evaluate.cc
+ * Purpose:    Header for evaluation.cc
  *
  * Contents:   
  * 
