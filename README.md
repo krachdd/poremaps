@@ -4,6 +4,7 @@
 
 [![Identifier](https://img.shields.io/badge/doi-10.18419%2Fdarus--3676-d45815)](https://doi.org/10.18419/darus-3676)
 [![Identifier](https://img.shields.io/badge/Publication-blue)](https://doi.org/10.69631/ipj.v2i1nr39)
+[![CI](https://github.com/krachdd/poremaps/actions/workflows/ci.yml/badge.svg)](https://github.com/krachdd/poremaps/actions/workflows/ci.yml)
 
 Given a binarized 3-D pore geometry (`.raw` file), POREMAPS solves the Stokes equations on a Cartesian finite-difference grid using MPI domain decomposition and computes the anisotropic intrinsic permeability tensor of the sample.
 
