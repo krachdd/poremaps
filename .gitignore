@@ -29,6 +29,7 @@
 # Compiled solver binary (legacy name kept for safety)
 STOKES_SOLVER*
 bin/POREMAPS
+.venv/
 
 # ============================================================
 # C/C++ build artifacts
